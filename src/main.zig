@@ -1,5 +1,7 @@
 const std = @import("std");
 const Board = @import("board.zig").Board;
+const global_flags = @import("board.zig").global_flags;
+const global_options = @import("board.zig").global_options;
 
 const argparse = @import("argparse.zig");
 const Args = argparse.Args;
@@ -18,7 +20,7 @@ pub fn main() !void {
 
     const command = board.commands.get(args.command);
     if(command) |cmd| {
-        try argparse.fillCommandArgs(&cmd, &args);
+        try argparse.fillCommandArgs(&cmd, &args, .{.other_flags = global_flags, .other_options = global_options});
         try cmd.action(&board, args);
     } else {
         return error.InvalidCommand;

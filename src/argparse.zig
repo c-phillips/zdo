@@ -164,27 +164,49 @@ pub const Args = struct {
 };
 
 
-pub fn fillCommandArgs(command: *const Command, args: *Args) !void {
-    if(command.flags) |flags|{
-        for(flags) |flag| {
-            if( flag[1] ) |name| {
-                if( flag[0] ) |short| {
-                    if( args.flags.get(short[1..]) )|value|{
-                        try args.flags.put(name[2..], value);
-                    }
+fn fillFlags(args: *Args, flags: []const ArgumentFormat) !void {
+    for(flags) |flag| {
+        if( flag[1] ) |name| {
+            if( flag[0] ) |short| {
+                if( args.flags.get(short[1..]) )|value|{
+                    try args.flags.put(name[2..], value);
                 }
             }
         }
     }
-    if(command.options) |options| {
-        for(options) |option| {
-            if( option[1] ) |name| {
-                if( option[0] ) |short| {
-                    if( args.options.get(short[1..]) ) |value| {
-                        try args.options.put(name[2..], value);
-                    }
+}
+
+fn fillOptions(args: *Args, options: []const ArgumentFormat) !void {
+    for(options) |option| {
+        if( option[1] ) |name| {
+            if( option[0] ) |short| {
+                if( args.options.get(short[1..]) ) |value| {
+                    try args.options.put(name[2..], value);
                 }
             }
         }
+    }
+}
+
+
+pub fn fillCommandArgs(
+    command: *const Command,
+    args: *Args,
+    opts: struct{
+        other_flags: ?[]const ArgumentFormat = null,
+        other_options: ?[]const ArgumentFormat = null
+    }
+) !void {
+    if(command.flags) |flags|{
+        try fillFlags(args, flags);
+    }
+    if(opts.other_flags) |flags| {
+        try fillFlags(args, flags);
+    }
+    if(command.options) |options| {
+        try fillOptions(args, options);
+    }
+    if(opts.other_options) |options| {
+        try fillOptions(args, options);
     }
 }
