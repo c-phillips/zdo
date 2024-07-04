@@ -359,9 +359,13 @@ pub const Task = struct {
         };
 
         var priority_symbol: u8 = '.';
-        if(self.priority > 3 and self.priority <= 7) {
+        if(self.priority > 2 and self.priority <= 4) {
+            priority_symbol = '-';
+        } else if(self.priority > 4 and self.priority <= 6) {
+            priority_symbol = '=';
+        } else if(self.priority > 6 and self.priority <= 8) {
             priority_symbol = 'o';
-        } else if(self.priority > 7) {
+        } else if(self.priority > 8) {
             priority_symbol = '#';
         }
 
