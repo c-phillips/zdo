@@ -215,13 +215,26 @@ pub const Task = struct {
         const file = try std.fs.openFileAbsolute(path, .{});
         defer file.close();
         const metadata = try file.metadata();
+
+        // TODO: switch to a streaming setup and remove the filesize restriction
         const buf = try file.readToEndAlloc(alloc, MAX_FILESIZE);
-        if( !std.mem.startsWith(u8, buf, "---") ) return error.MissingFrontMatter;
-        
-        var parts = std.mem.splitSequence(u8, buf, "---");
-        _ = parts.next();  // first part is empty
-        if(parts.next()) |frontmatter|{
-            var propmap = try Task.parseFrontmatter(alloc, util.trim(frontmatter));
+
+        var propmap: std.StringHashMap([]const u8) = undefined;
+
+        if( !std.mem.startsWith(u8, buf, "---") ){
+            // handle a file without frontmatter
+            propmap = std.StringHashMap([]const u8).init(alloc);
+            var line_iter = std.mem.splitScalar(u8, util.trim(buf), '\n');
+            if(line_iter.next())|first_line|{
+                if( util.trim(first_line)[0] == '#' ){
+                    try propmap.put("name", util.trim(first_line[1..]));
+                }
+            }
+            try propmap.put("description", buf);
+        } else {
+            var parts = std.mem.splitSequence(u8, buf, "---");
+            _ = parts.next();  // first part is empty
+            propmap = try Task.parseFrontmatter(alloc, util.trim(parts.next().?));
 
             if(propmap.get("name") == null) {
                 if(parts.peek()) |description|{
@@ -238,42 +251,46 @@ pub const Task = struct {
 
             const description = parts.rest();
             try propmap.put("description", description);
-
-            const priority_val = try std.fmt.parseInt(u8, propmap.get("priority") orelse "0", 10);
-
-            var due: ?datetime.DateTime = null;
-            if(propmap.get("due")) |due_str| {
-                due = try datetime.DateTime.fromDateString(due_str);
-            }
-            var start: ?datetime.DateTime = null;
-            if(propmap.get("start")) |start_str| {
-                start = try datetime.DateTime.fromDateString(start_str);
-            }
-
-            var tag_list = std.ArrayList([]const u8).init(alloc);
-            const tag_str = propmap.get("tags") orelse "";
-            if(tag_str.len > 0){
-                var tag_iter = std.mem.splitScalar(u8, tag_str, ',');
-                while(tag_iter.next()) |tag| {
-                    if(tag.len > 0) try tag_list.append(util.trim(tag));
-                }
-            }
-            return Task.init(alloc, .{
-                .today = opts.today,
-                .name     = propmap.get("name") orelse std.fs.path.basename(path),
-                .start  = start,
-                .due      = due,
-                .priority = priority_val,
-                .tags     = tag_list,
-                .note     = util.trim(propmap.get("description") orelse ""),
-                .status = std.meta.stringToEnum(TaskStatus, propmap.get("status") orelse "pending") orelse .pending,
-
-                .file_path = path,
-                .file_hash = std.hash.CityHash32.hash(buf),
-                .file_meta = metadata,
-            });
         }
-        return error.MissingFrontMatter;
+
+        // If there's no first header, the best backup option is the filename
+        if( !propmap.contains("name") ) {
+            try propmap.put("name", std.fs.path.stem(path));
+        }
+
+        const priority_val = try std.fmt.parseInt(u8, propmap.get("priority") orelse "0", 10);
+
+        var due: ?datetime.DateTime = null;
+        if(propmap.get("due")) |due_str| {
+            due = try datetime.DateTime.fromDateString(due_str);
+        }
+        var start: ?datetime.DateTime = null;
+        if(propmap.get("start")) |start_str| {
+            start = try datetime.DateTime.fromDateString(start_str);
+        }
+
+        var tag_list = std.ArrayList([]const u8).init(alloc);
+        const tag_str = propmap.get("tags") orelse "";
+        if(tag_str.len > 0){
+            var tag_iter = std.mem.splitScalar(u8, tag_str, ',');
+            while(tag_iter.next()) |tag| {
+                if(tag.len > 0) try tag_list.append(util.trim(tag));
+            }
+        }
+        return Task.init(alloc, .{
+            .today = opts.today,
+            .name     = propmap.get("name") orelse std.fs.path.basename(path),
+            .start  = start,
+            .due      = due,
+            .priority = priority_val,
+            .tags     = tag_list,
+            .note     = util.trim(propmap.get("description") orelse ""),
+            .status = std.meta.stringToEnum(TaskStatus, propmap.get("status") orelse "pending") orelse .pending,
+
+            .file_path = path,
+            .file_hash = std.hash.CityHash32.hash(buf),
+            .file_meta = metadata,
+        });
     }
 
     pub fn makeStr(
