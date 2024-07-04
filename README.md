@@ -5,6 +5,8 @@ Cross-platform CLI Task Manager using Markdown
 
 No lock-in, no worries
 
+> ⚠ Currently in pre-alpha stage, don't expect this not to crash or break something!
+
 ## Install
 This project uses Zig 0.13.0 for now. You can get it from [here](https://ziglang.org/download).
 
