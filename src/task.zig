@@ -472,7 +472,7 @@ pub const Task = struct {
 
 
 /// Will use the allocator attached to the task_list
-fn loadLocationToList(task_list: *std.ArrayList(Task), opts: struct{
+pub fn loadLocationToList(task_list: *std.ArrayList(Task), opts: struct{
     rel_location: ?[]const u8 = null,
     abs_location: ?[]const u8 = null,
     today: ?datetime.DateTime = null,
