@@ -112,7 +112,13 @@ pub const Args = struct {
                         continue;
                     } else {
                         if(command == null) {
-                            try args.flags.put(entry[1..], true);
+                            var j: usize = 1;
+                            std.log.debug("{s}", .{entry});
+                            try args.flags.put(entry[j..j+1], true);
+                            while( j < entry.len ) : (j += 1){
+                                std.log.debug("    {d} : {c}", .{j, entry[j]});
+                                try args.flags.put(entry[j..j+1], true);
+                            }
                         } else {
                             return error.BadOption;
                         }
