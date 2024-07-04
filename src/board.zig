@@ -277,7 +277,6 @@ pub const Board = struct {
     ) !void {
         const stderr = std.io.getStdErr().writer();
         try stderr.writeAll("Adding a task...\n");
-        try args.printAll();
 
         var tags = std.ArrayList([]const u8).init(self.alloc);
         defer tags.deinit();

@@ -113,10 +113,8 @@ pub const Args = struct {
                     } else {
                         if(command == null) {
                             var j: usize = 1;
-                            std.log.debug("{s}", .{entry});
                             try args.flags.put(entry[j..j+1], true);
                             while( j < entry.len ) : (j += 1){
-                                std.log.debug("    {d} : {c}", .{j, entry[j]});
                                 try args.flags.put(entry[j..j+1], true);
                             }
                         } else {
@@ -144,22 +142,20 @@ pub const Args = struct {
         self.flags.deinit();
         self.options.deinit();
     }
-
     
-    pub fn printAll(args: *const Args) !void {
-        const stderr = std.io.getStdErr().writer();
-        try stderr.print("All args:\n", .{});
-        try stderr.print("  Flags:\n", .{});
+    pub fn printAllDebug(args: *const Args) !void {
+        std.log.debug("All args:", .{});
+        std.log.debug("  Flags:", .{});
         var flag_iter = args.flags.iterator();
         while(flag_iter.next()) |entry| {
-            try stderr.print("    {s} -> {}\n", .{entry.key_ptr.*, entry.value_ptr.*});
+            std.log.debug("    {s} -> {}", .{entry.key_ptr.*, entry.value_ptr.*});
         }
-        try stderr.print("  Options:\n", .{});
+        std.log.debug("  Options:", .{});
         var option_iter = args.options.iterator();
         while(option_iter.next()) |entry| {
-            try stderr.print("    {s} -> {s}\n", .{entry.key_ptr.*, entry.value_ptr.*});
+            std.log.debug("    {s} -> {s}", .{entry.key_ptr.*, entry.value_ptr.*});
         }
-        try stderr.writeAll("\n");
+        std.log.debug("\n", .{});
     }
 };
 

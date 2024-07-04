@@ -21,6 +21,7 @@ pub fn main() !void {
     const command = board.commands.get(args.command);
     if(command) |cmd| {
         try argparse.fillCommandArgs(&cmd, &args, .{.other_flags = global_flags, .other_options = global_options});
+        try args.printAllDebug();
         try cmd.action(&board, args);
     } else {
         return error.InvalidCommand;

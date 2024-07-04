@@ -240,7 +240,6 @@ pub const Container = struct {
                 }
             }
         }
-        try args.printAll();
         if(args.options.contains("sort") or opts.flat) try self.sortBy(args);
     }
 

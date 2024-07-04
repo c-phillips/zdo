@@ -70,11 +70,6 @@ pub const Task = struct {
             }
         }
 
-        // var file_path: ?[]const u8 = null;
-        // if( args.file_path ) |path| {
-        //     file_path = try allocator.dupe(u8, util.trim(path));
-        // }
-
         return Task{
             .name = args.name,
             .start = args.start,
@@ -303,38 +298,39 @@ pub const Task = struct {
         }
         name_col = name_col[0..name_col_len];
 
-        var datestr: []const u8 = undefined;            
+        var datefmt: ?[]const u8 = null;
         if( self.due ) |_| {
             if(self.days_until_due.? > 0) {
                 if( self.start )|_|{
                     if(self.days_until_start.? <= 0){
                         // middle of the task timeline
-                        datestr = try std.fmt.allocPrint(alloc, "{d}d remaining", .{self.days_until_due.?});
+                        datefmt = try std.fmt.allocPrint(alloc, "{d}d remaining", .{self.days_until_due.?});
                     } else {
                         // don't need to start yet
-                        datestr = try std.fmt.allocPrint(alloc, "Starts in {d}d", .{self.days_until_start.?});
+                        datefmt = try std.fmt.allocPrint(alloc, "Starts in {d}d", .{self.days_until_start.?});
                     }
                 } else {
-                    datestr = try std.fmt.allocPrint(alloc, "Due in {d}d", .{self.days_until_due.?});
+                    datefmt = try std.fmt.allocPrint(alloc, "Due in {d}d", .{self.days_until_due.?});
                 }
             } else if (self.days_until_due.? < 0){
-                datestr = try std.fmt.allocPrint(alloc, "Due {d}d ago", .{-1*self.days_until_due.?});
+                datefmt = try std.fmt.allocPrint(alloc, "Due {d}d ago", .{-1*self.days_until_due.?});
             } else {
-                datestr = try std.fmt.allocPrint(alloc, "Due today!", .{});
+                datefmt = try std.fmt.allocPrint(alloc, "Due today!", .{});
             }
         } else if( self.start ) |_| {
             if(self.days_until_start.? > 0) {
-                datestr = try std.fmt.allocPrint(alloc, "Starts in {d}d", .{self.days_until_start.?});
+                datefmt = try std.fmt.allocPrint(alloc, "Starts in {d}d", .{self.days_until_start.?});
             } else if (self.days_until_start.? < 0){
-                datestr = try std.fmt.allocPrint(alloc, "Started {d}d ago", .{-1*self.days_until_start.?});
+                datefmt = try std.fmt.allocPrint(alloc, "Started {d}d ago", .{-1*self.days_until_start.?});
             } else {
-                datestr = try std.fmt.allocPrint(alloc, "Starts today!", .{});
+                datefmt = try std.fmt.allocPrint(alloc, "Starts today!", .{});
             }
-        } else {
-            // FIXME: figure out how to just get around the alloc free thing so we don't have to dupe
-            datestr = try self.alloc.dupe(u8, "Anytime");
         }
-        defer alloc.free(datestr);
+        const datestr = datefmt orelse "Anytime";
+        defer {
+            if(datefmt != null) alloc.free(datefmt.?);
+        }
+
 
         const checkbox = switch(self.status) {
             .pending => "[ ] ",
