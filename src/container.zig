@@ -211,6 +211,8 @@ pub const Container = struct {
             .today = datetime.DateTime.today()
         });
 
+        std.mem.sort(Task, self.tasks.items, {}, Task.lessThanWithCtx);
+        
         var task_map = std.StringHashMap(*Task).init(self.alloc);
         var filter_mask = try self.alloc.alloc(bool, self.tasks.items.len);
         for(self.tasks.items, 0..) |*task, idx| {
@@ -238,7 +240,7 @@ pub const Container = struct {
                 }
             }
         }
-        std.mem.sort(Task, self.tasks.items, {}, Task.lessThanWithCtx);
+
     }
 
     pub fn getTaskById(self: *const Container, id: []const u8) !?*Task {
