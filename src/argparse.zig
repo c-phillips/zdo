@@ -12,9 +12,44 @@ pub const Command = struct {
     options: ?[]const ArgumentFormat = null,
     action: *const fn (board: *Board, args: Args) anyerror!void,
     
-    pub fn help(self: *const Command) !void {
-        const stderr = std.io.getStdErr().writer();
-        try stderr.writeAll(self.help_long);
+    pub fn makeStr(self: *const Command, alloc: std.mem.Allocator, opts: struct{long: bool = false}) ![]u8 {
+        const command_name_col_len = 10;
+        const command_name = try alloc.dupe(u8, " " ** command_name_col_len);
+        defer alloc.free(command_name);
+
+        const fmt_name = try std.fmt.allocPrint(alloc, "  `{s}`", .{self.name});
+        defer alloc.free(fmt_name);
+        std.mem.copyForwards(u8, command_name, fmt_name[0..@min(fmt_name.len, command_name_col_len)]);
+        var buf = std.ArrayList(u8).init(alloc);
+        var bufwriter = buf.writer();
+        try bufwriter.print(
+            "{s}{s}\n",
+            .{
+                command_name,
+                if(opts.long) self.description else std.mem.sliceTo(self.description, '\n')
+            }
+        );
+        if(self.flags) |flags|{
+            for(flags) |flag| {
+                try bufwriter.print("      {s: <3}{s: <15}{s}\n", .{
+                    flag[0] orelse "",
+                    flag[1] orelse "",
+                    if(opts.long) flag[2] else std.mem.sliceTo(flag[2], '\n'),
+                });
+            }
+        }
+        if(self.options) |options|{
+            for(options) |option| {
+                try bufwriter.print("      {s: <3}{s: <15}{s}\n", .{
+                    option[0] orelse "",
+                    option[1] orelse "",
+                    if(opts.long) option[2] else std.mem.sliceTo(option[2], '\n'),
+                });
+            }
+        }
+        try bufwriter.writeAll("\n");
+
+        return buf.items;
     }
 };
 

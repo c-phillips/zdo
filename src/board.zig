@@ -209,10 +209,25 @@ pub const Board = struct {
     }
 
     pub fn help(board: *Board, args: Args) !void {
-        // _ = args;
         const alloc = board.alloc;
         const stderr = std.io.getStdErr().writer();
         try args.printAll();
+
+        // If the user provided a positional argument, lets try to print the
+        // description for that command, otherwise just print all commands
+        if(args.positional.items.len > 0){
+            const user_command = args.positional.items[0];
+
+            // find the actual command object
+            for(board.cli_commands) |command_entry| {
+                if( std.mem.eql(u8, command_entry.name, user_command) ){
+                    try stderr.writeAll(try command_entry.makeStr(alloc, .{.long = true}));
+                    return;
+                }
+            }
+            try stderr.writeAll("Command not found!");
+        }
+
         try stderr.writeAll("Global Options:\n");
         for(global_flags) |flag| {
             try stderr.print("    {s: <3}{s: <15}{s}\n", .{
@@ -233,48 +248,11 @@ pub const Board = struct {
         try stderr.writeAll("\n");
 
         try stderr.writeAll("Board Commands:\n");
-        const command_name_col_len = 10;
         var command_iter = board.commands.valueIterator();
         while(command_iter.next()) |command| {
-            const command_name = try alloc.dupe(u8, " " ** command_name_col_len);
-            defer alloc.free(command_name);
-
-            const fmt_name = try std.fmt.allocPrint(alloc, "  `{s}`", .{command.name});
-            defer alloc.free(fmt_name);
-            std.mem.copyForwards(u8, command_name, fmt_name[0..@min(fmt_name.len, command_name_col_len)]);
-
-            try stderr.print(
-                "{s}{s}\n",
-                .{
-                    command_name,
-                    if(args.flags.contains("long")) command.description else std.mem.sliceTo(command.description, '\n')
-                }
-            );
-            if(command.flags) |flags|{
-                for(flags) |flag| {
-                    try stderr.print("      {s: <3}{s: <15}{s}\n", .{
-                        flag[0] orelse "",
-                        flag[1] orelse "",
-                        if(args.flags.contains("long")) flag[2] else std.mem.sliceTo(flag[2], '\n'),
-                    });
-                }
-            }
-            if(command.options) |options|{
-                for(options) |option| {
-                    try stderr.print("      {s: <3}{s: <15}{s}\n", .{
-                        option[0] orelse "",
-                        option[1] orelse "",
-                        if(args.flags.contains("long")) option[2] else std.mem.sliceTo(option[2], '\n'),
-                    });
-                }
-            }
-            try stderr.writeAll("\n");
+            try stderr.writeAll(try command.makeStr(alloc, .{.long = args.flags.contains("long")}));
         }
     }
-
-    // pub fn loadTasks(self: *Board, args: Args) !void {
-    //     try self.Container.loadTasks(args);
-    // }
 
     pub fn list(
         self: *Board,
