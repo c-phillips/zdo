@@ -19,7 +19,12 @@ pub const global_flags: []const ArgumentFormat = &.{
 };
 pub const global_options: []const ArgumentFormat = &.{
     .{null, "--dirs", "Comma separated list of task directories to include"},
-    .{"-s", "--sort", "Attribute for sorting. Default is `creation date`"},
+    .{"-s", "--sort", \\Task attribute to sort by
+    \\          `c`,`creation`  [Default] Task file creation date
+    \\          `p`,`priority`  Task priortiy
+    \\          `d`,`due`       Task due date
+    \\          `s`,`start`     Task start date
+    },
 };
 
 
