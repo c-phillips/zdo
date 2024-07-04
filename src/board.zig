@@ -36,7 +36,7 @@ pub const Board = struct {
     cli_commands: []const Command = &.{
         .{
             .name = "help",
-            .description = "Print commands, flags, and options",
+            .description = "See more info with `help [command]` or `help --long`",
             .flags = &.{
                 .{"-l", "--long",     "Print long descriptions"},
             },
@@ -211,7 +211,6 @@ pub const Board = struct {
     pub fn help(board: *Board, args: Args) !void {
         const alloc = board.alloc;
         const stderr = std.io.getStdErr().writer();
-        try args.printAll();
 
         // If the user provided a positional argument, lets try to print the
         // description for that command, otherwise just print all commands
@@ -228,6 +227,7 @@ pub const Board = struct {
             try stderr.writeAll("Command not found!");
         }
 
+        // Fallthrough condition: print all commands
         try stderr.writeAll("Global Options:\n");
         for(global_flags) |flag| {
             try stderr.print("    {s: <3}{s: <15}{s}\n", .{
@@ -269,8 +269,6 @@ pub const Board = struct {
         self: *Board,
         args: Args,
     ) !void {
-        // _ = self;
-        // _ = args;
         const stderr = std.io.getStdErr().writer();
         try stderr.writeAll("Adding a task...\n");
         try args.printAll();
