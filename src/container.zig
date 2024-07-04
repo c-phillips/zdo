@@ -27,7 +27,7 @@ pub const Container = struct {
     child_prefix_map: ?std.StringHashMap(*Container) = null,
     task_map: ?std.StringHashMap(*Task) = null,
     level: u8 = 0,
-    task_filter_mask: ?[]const bool = null,
+    task_filter_mask: ?[]bool = null,
     valid_child_tasks: bool = false,
 
     pub fn deinit(self: *Container) void {
@@ -211,7 +211,7 @@ pub const Container = struct {
             .today = datetime.DateTime.today()
         });
 
-        std.mem.sort(Task, self.tasks.items, {}, Task.lessThanWithCtx);
+        std.mem.sort(Task, self.tasks.items, tasklib.SortAttribute.creation, Task.sortWithContext);
         
         var task_map = std.StringHashMap(*Task).init(self.alloc);
         var filter_mask = try self.alloc.alloc(bool, self.tasks.items.len);
@@ -240,7 +240,26 @@ pub const Container = struct {
                 }
             }
         }
+        try args.printAll();
+        if(args.options.contains("sort") or opts.flat) try self.sortBy(args);
+    }
 
+    pub fn sortBy(self: *Container, args: Args) !void {
+        const user_sort = args.options.get("sort") orelse "c";
+        const sort_attr: tasklib.SortAttribute = switch(user_sort[0]){
+            'p'  => .priority,
+            'd'  => .due,
+            's'  => .start,
+            else => .creation,
+        };
+        std.mem.sort(Task, self.tasks.items, sort_attr, Task.sortWithContext);
+
+        // TODO: Figure out if there's a more efficient way to do this so we don't keep
+        //       reiterating over the list
+        if( args.flags.contains("desc") ){
+            std.mem.reverse(Task, self.tasks.items);
+            std.mem.reverse(bool, self.task_filter_mask.?);
+        }
     }
 
     pub fn getTaskById(self: *const Container, id: []const u8) !?*Task {

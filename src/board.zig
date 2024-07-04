@@ -16,10 +16,11 @@ const trim = util.trim;
 
 pub const global_flags: []const ArgumentFormat = &.{
     .{"-c", "--current", "Use current directory tasks only"},
+    .{"-d", "--desc", "List in descending order"},
 };
 pub const global_options: []const ArgumentFormat = &.{
     .{null, "--dirs", "Comma separated list of task directories to include"},
-    .{"-s", "--sort", \\Task attribute to sort by
+    .{"-s", "--sort", \\Task attribute to sort (ascending by default)
     \\          `c`,`creation`  [Default] Task file creation date
     \\          `p`,`priority`  Task priortiy
     \\          `d`,`due`       Task due date

@@ -12,6 +12,13 @@ pub const TaskStatus = enum(u3) {
     done,
 };
 
+pub const SortAttribute = enum(u3) {
+    creation,
+    priority,
+    due,
+    start,
+};
+
 pub const Task = struct {
     name: []const u8,
     start: ?datetime.DateTime,
@@ -454,19 +461,47 @@ pub const Task = struct {
         }
     }
 
-    pub fn lessThan(self: Task, other: Task) bool {
-        if( self.file_meta != null and other.file_meta != null ){
-            if(self.file_meta.?.created()) |self_created| {
-                if(other.file_meta.?.created()) |other_created| {
-                    return self_created > other_created;
-                }
+    pub fn olderThan(self: Task, other: Task) bool {
+        if(self.file_meta.?.created()) |self_created|{
+            if(other.file_meta.?.created()) |other_created|{
+                return self_created > other_created;
             }
+            return true;
         }
-        return self.priority < other.priority;
+        return false;
     }
 
-    pub fn lessThanWithCtx(_: void, a: Task, b: Task) bool {
-        return b.lessThan(a);
+    pub fn moreImportantThan(self: Task, other: Task) bool {
+        return self.priority > other.priority;
+    }
+
+    pub fn dueSoonerThan(self: Task, other: Task) bool {
+        if(self.days_until_due) |self_days_until_due|{
+            if(other.days_until_due) |other_days_until_due|{
+                return self_days_until_due < other_days_until_due;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    pub fn startsSoonerThan(self: Task, other: Task) bool {
+        if(self.days_until_start) |self_days_until_start|{
+            if(other.days_until_start) |other_days_until_start|{
+                return self_days_until_start < other_days_until_start;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    pub fn sortWithContext(context: SortAttribute, a: Task, b: Task) bool {
+        return switch(context) {
+            .priority => b.moreImportantThan(a),
+            .due      => b.dueSoonerThan(a),
+            .start    => b.startsSoonerThan(a),
+            else      => b.olderThan(a)
+        };
     }
 };
 
