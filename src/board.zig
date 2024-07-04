@@ -149,8 +149,17 @@ pub const Board = struct {
     pub fn init(alloc: std.mem.Allocator, args: Args) !Board {
         var task_locations = std.ArrayList([]const u8).init(alloc);
         
+        var cwd_task_dir = std.fs.cwd().openDir(".tasks", .{}) catch |err| switch(err){
+            error.FileNotFound => blk: {
+                try std.fs.cwd().makeDir(".tasks");
+                break :blk try std.fs.cwd().openDir(".tasks", .{});
+            },
+            else => return err
+        };
+        cwd_task_dir.close();
         const current_location = try std.fs.cwd().realpathAlloc(alloc, "./.tasks/");
         try task_locations.append(current_location);
+
         const root_cont = try Container.init(alloc, "./.tasks/", .{});
 
         if(args.options.get("dirs")) |path_override|{
