@@ -1,5 +1,5 @@
 ![zdo_logo](doc/zdo_logo_header.png#gh-light-mode-only)
-![zdo_logo](doc/zig_logo_header_darkmode.png#gh-dark-mode-only)
+![zdo_logo](doc/zdo_logo_header_darkmode.png#gh-dark-mode-only)
 
 Cross-platform CLI Task Manager using Markdown
 
