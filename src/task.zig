@@ -96,6 +96,7 @@ pub const Task = struct {
     /// WARNING: This will overwrite the frontmatter with whatever is in props!
     /// If you want to preserve the frontmatter that is already there, you need
     /// to first read the contents into your hashmap!
+    /// TODO: Add proper YAML parsing to prevent overwriting other user-set data
     pub fn updateFileFrontmatter(self: *const Task, props: std.StringHashMap([]const u8), opts: struct {
         abspath: ?[]const u8 = null,
         relpath: ?[]const u8 = null,
@@ -462,15 +463,18 @@ pub const Task = struct {
 
             const reader = file.reader();
             const buf = try reader.readAllAlloc(self.alloc, MAX_FILESIZE);
-            var parts = std.mem.splitSequence(u8, buf, "---");
-            _ = parts.next();
-            if(parts.next()) |frontmatter|{
-                var propmap = try Task.parseFrontmatter(self.alloc, frontmatter);
-                try propmap.put("status", @tagName(status));
-                try self.updateFileFrontmatter(propmap, .{.abspath = path});
+            var propmap: std.StringHashMap([]const u8) = undefined;
+
+            if( !std.mem.startsWith(u8, buf, "---") ){
+                // handle a file without frontmatter
+                propmap = std.StringHashMap([]const u8).init(self.alloc);
             } else {
-                return error.MissingFrontMatter;
+                var parts = std.mem.splitSequence(u8, buf, "---");
+                _ = parts.next();  // first part is empty
+                propmap = try Task.parseFrontmatter(self.alloc, util.trim(parts.next().?));
             }
+            try propmap.put("status", @tagName(status));
+            try self.updateFileFrontmatter(propmap, .{.abspath = path});
         }
     }
 
