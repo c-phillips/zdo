@@ -29,7 +29,7 @@ pub const Task = struct {
     file_hash: ?u32 = null,
     file_meta: ?std.fs.File.Metadata = null,
 
-    /// Set by the registry
+    /// Set by the container
     _id: ?[]const u8 = null,
 
     pub fn init(allocator: std.mem.Allocator, args: struct {
@@ -469,3 +469,38 @@ pub const Task = struct {
         return b.lessThan(a);
     }
 };
+
+
+/// Will use the allocator attached to the task_list
+fn loadLocationToList(task_list: *std.ArrayList(Task), opts: struct{
+    rel_location: ?[]const u8 = null,
+    abs_location: ?[]const u8 = null,
+    today: ?datetime.DateTime = null,
+}) !void {
+    var d: std.fs.Dir = undefined;
+    if( opts.rel_location ) |location| {
+        std.log.debug("Trying to access relative path: {s}", .{location});
+        d = try std.fs.cwd().openDir(location, .{.iterate = true});
+    } else if( opts.abs_location ) |location| {
+        std.log.debug("Trying to access absolute path: {s}", .{location});
+        d = try std.fs.openDirAbsolute(location, .{.iterate=true});
+    } else {
+        return error.NoPathSpecified;
+    }
+
+    var iter = d.iterate();
+    while( try iter.next() ) |entry| {
+        if(entry.kind == .file){
+            std.log.debug("\t\tFound \"{s}\"", .{entry.name});
+            if( std.mem.endsWith(u8, entry.name, ".md") ){
+                try task_list.append(
+                    try Task.fromTaskFile(
+                        task_list.allocator,
+                        try d.realpathAlloc(task_list.allocator, entry.name),
+                        .{.today = opts.today}
+                    )
+                );
+            }
+        }
+    }
+}
