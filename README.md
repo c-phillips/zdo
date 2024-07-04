@@ -5,6 +5,18 @@ Cross-platform CLI Task Manager using Markdown
 
 No lock-in, no worries
 
+## Install
+This project uses Zig 0.13.0 for now. You can get it from [here](https://ziglang.org/download).
+
+To build the executable for use, run
+```bash
+zig build -Drelase=true
+```
+Then add it to your system path or `bin` directory.
+
+In the future, this repository may host prebuilt binaries for easier installation.
+
+
 ## How to use it
 See all the commands with `zdo help` or you can get started right away by adding your first task:
 ```bash
