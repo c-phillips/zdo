@@ -78,7 +78,7 @@ pub const Board = struct {
         .{
             .name = "list",
             .description = \\List all found tasks
-            \\      > zdo [flags...] [filters...] list [filters...]
+            \\      > zdo [flags...] [filters...] list [filters...][options...]
             \\
             \\      Example:
             \\      > zdo -l list +home
