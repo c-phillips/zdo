@@ -27,7 +27,6 @@ pub const Container = struct {
     child_prefix_map: ?std.StringHashMap(*Container) = null,
     task_map: ?std.StringHashMap(*Task) = null,
     level: u8 = 0,
-    task_filter_mask: ?[]bool = null,
     valid_child_tasks: bool = false,
 
     pub fn deinit(self: *Container) void {
@@ -136,8 +135,8 @@ pub const Container = struct {
         }
         
         var have_tasks = false;
-        for(self.task_filter_mask.?) |unfiltered| {
-            have_tasks = have_tasks or !unfiltered;
+        for(self.tasks.items) |task| {
+            have_tasks = have_tasks or !task._filtered;
             if( have_tasks ) break;
         }
         // std.log.debug("{s} has unfiltered tasks? {}, or maybe child tasks? {}", .{self.dirname, have_tasks, self.valid_child_tasks});
@@ -173,8 +172,8 @@ pub const Container = struct {
         }
 
         // write the tasks
-        for(self.tasks.items, 0..) |task, idx| {
-            if(self.task_filter_mask.?[idx]) continue;
+        for(self.tasks.items) |task| {
+            if(task._filtered) continue;
 
             const str = try task.makeStr(self.alloc, .{.short = !args.long, .linewidth=76});
             // defer self.alloc.free(str);
@@ -214,20 +213,17 @@ pub const Container = struct {
         std.mem.sort(Task, self.tasks.items, tasklib.SortAttribute.creation, Task.sortWithContext);
         
         var task_map = std.StringHashMap(*Task).init(self.alloc);
-        var filter_mask = try self.alloc.alloc(bool, self.tasks.items.len);
         for(self.tasks.items, 0..) |*task, idx| {
             task._id = try std.fmt.allocPrint(task.alloc, "{s}{d}", .{self.prefix, idx});
-            filter_mask[idx] = try Container.filterTask(task, args);
+            task._filtered = try Container.filterTask(task, args);
             try task_map.put(task._id.?, task);
         }
-        self.task_filter_mask = filter_mask;
         self.task_map = task_map;
 
         if( self.children ) |children| {
             for(children.items) |*child| {
                 std.log.debug("Loading tasks for {s}", .{child.dirname});
                 try child.loadTasks(args, opts);
-                self.valid_child_tasks = self.valid_child_tasks or std.mem.allEqual(bool, child.task_filter_mask.?, false);
             }
         }
 
@@ -236,11 +232,11 @@ pub const Container = struct {
                 for(children.items) |child| {
                     // join the child tasks and filter mask into the parent's
                     try self.tasks.appendSlice(child.tasks.items);
-                    self.task_filter_mask = try std.mem.concat(self.alloc, bool, &.{child.task_filter_mask.?, self.task_filter_mask.?});
                 }
             }
         }
-        if(args.options.contains("sort") or opts.flat) try self.sortBy(args);
+        
+        if(args.options.contains("sort") or (opts.flat and self.parent == null)) try self.sortBy(args);
     }
 
     pub fn sortBy(self: *Container, args: Args) !void {
@@ -257,7 +253,6 @@ pub const Container = struct {
         //       reiterating over the list
         if( args.flags.contains("desc") ){
             std.mem.reverse(Task, self.tasks.items);
-            std.mem.reverse(bool, self.task_filter_mask.?);
         }
     }
 
@@ -353,6 +348,19 @@ pub const Container = struct {
                             has = has or std.mem.eql(u8, value, word);
                         }
                         ok = ok and !( color != has );
+                    }
+                },
+                '@' => {
+                    // this is a status filter
+                    if( item.len < 3 ) return error.FilterTooShort;
+                    const value_str = item[2..];
+                    const value_enum = std.meta.stringToEnum(tasklib.TaskStatus, value_str);
+                    if( value_enum ) |value| {
+                        const has: bool = task.status == value;
+                        ok = ok and !( color != has );
+                        std.log.debug("Filtering [{s}] for status value {}  ->  {} => {}", .{task.name, value, has, ok});
+                    } else {
+                        std.log.err("Bad status name: {s}", .{value_str});
                     }
                 },
                 else => {

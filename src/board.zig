@@ -90,7 +90,8 @@ pub const Board = struct {
             \\        (+/!) : ->  Tags
             \\        (+/!) # ->  Title
             \\        (+/!) ? ->  Note
-            \\        (+/!) * ->  All
+            \\        (+/!) * ->  All above
+            \\        (+/!) @ ->  Status
             \\
             \\      Example:
             \\      > zdo !:personal +#issue list

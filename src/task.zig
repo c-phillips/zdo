@@ -38,6 +38,7 @@ pub const Task = struct {
 
     /// Set by the container
     _id: ?[]const u8 = null,
+    _filtered: bool = false,
 
     pub fn init(allocator: std.mem.Allocator, args: struct {
         name: []const u8,
