@@ -1,18 +1,16 @@
 const std = @import("std");
 const Board = @import("board.zig").Board;
 
-
-
 // Specifies how to pass an argument: short (-),  long (--), help string
-pub const ArgumentFormat = struct{?[]const u8, ?[]const u8, []const u8};
+pub const ArgumentFormat = struct { ?[]const u8, ?[]const u8, []const u8 };
 pub const Command = struct {
     name: []const u8,
     description: []const u8 = "",
     flags: ?[]const ArgumentFormat = null,
     options: ?[]const ArgumentFormat = null,
     action: *const fn (board: *Board, args: Args) anyerror!void,
-    
-    pub fn makeStr(self: *const Command, alloc: std.mem.Allocator, opts: struct{long: bool = false}) ![]u8 {
+
+    pub fn makeStr(self: *const Command, alloc: std.mem.Allocator, opts: struct { long: bool = false }) ![]u8 {
         const command_name_col_len = 10;
         const command_name = try alloc.dupe(u8, " " ** command_name_col_len);
         defer alloc.free(command_name);
@@ -22,28 +20,22 @@ pub const Command = struct {
         std.mem.copyForwards(u8, command_name, fmt_name[0..@min(fmt_name.len, command_name_col_len)]);
         var buf = std.ArrayList(u8).init(alloc);
         var bufwriter = buf.writer();
-        try bufwriter.print(
-            "{s}{s}\n",
-            .{
-                command_name,
-                if(opts.long) self.description else std.mem.sliceTo(self.description, '\n')
-            }
-        );
-        if(self.flags) |flags|{
-            for(flags) |flag| {
+        try bufwriter.print("{s}{s}\n", .{ command_name, if (opts.long) self.description else std.mem.sliceTo(self.description, '\n') });
+        if (self.flags) |flags| {
+            for (flags) |flag| {
                 try bufwriter.print("      {s: <3}{s: <15}{s}\n", .{
                     flag[0] orelse "",
                     flag[1] orelse "",
-                    if(opts.long) flag[2] else std.mem.sliceTo(flag[2], '\n'),
+                    if (opts.long) flag[2] else std.mem.sliceTo(flag[2], '\n'),
                 });
             }
         }
-        if(self.options) |options|{
-            for(options) |option| {
+        if (self.options) |options| {
+            for (options) |option| {
                 try bufwriter.print("      {s: <3}{s: <15}{s}\n", .{
                     option[0] orelse "",
                     option[1] orelse "",
-                    if(opts.long) option[2] else std.mem.sliceTo(option[2], '\n'),
+                    if (opts.long) option[2] else std.mem.sliceTo(option[2], '\n'),
                 });
             }
         }
@@ -52,7 +44,6 @@ pub const Command = struct {
         return buf.items;
     }
 };
-
 
 pub const Args = struct {
     exe_path: []const u8,
@@ -75,31 +66,31 @@ pub const Args = struct {
 
         var command: ?[]const u8 = null;
 
-        var i: usize = 1;  // skip the executable path argument
-        while(i < raw_args.len) : (i += 1) {
+        var i: usize = 1; // skip the executable path argument
+        while (i < raw_args.len) : (i += 1) {
             const entry = raw_args[i];
-            if(entry.len < 1) continue;
-            switch(entry[0]) {
+            if (entry.len < 1) continue;
+            switch (entry[0]) {
                 '+' => try args.filters.append(entry),
                 '!' => try args.filters.append(entry),
                 '-' => {
-                    if(entry.len == 1) return error.InvalidArgument;
-                    if(entry[1] == '-' or command != null){
-                        const offset: usize = if( entry [1] == '-' ) 2 else 1;
-                        
-                        if( raw_args.len > i+1){
-                            const next = raw_args[i+1];
-                            if( next[0] == '"' ) {
+                    if (entry.len == 1) return error.InvalidArgument;
+                    if (entry[1] == '-' or command != null) {
+                        const offset: usize = if (entry[1] == '-') 2 else 1;
+
+                        if (raw_args.len > i + 1) {
+                            const next = raw_args[i + 1];
+                            if (next[0] == '"') {
                                 var value = std.ArrayList([]const u8).init(alloc);
                                 defer value.deinit();
-                                var j = i+1;
-                                while(raw_args[j][0] != '"' and raw_args[j][raw_args[j].len-1] != '"') : (j += 1) {
+                                var j = i + 1;
+                                while (raw_args[j][0] != '"' and raw_args[j][raw_args[j].len - 1] != '"') : (j += 1) {
                                     try value.append(raw_args[j]);
                                 }
                                 try args.options.put(entry[offset..], try std.mem.join(alloc, " ", value.items));
-                                i = j+1;
+                                i = j + 1;
                             } else {
-                                if(next[0] == '-' or next[0] == '!' or next[0] == '+') {
+                                if (next[0] == '-' or next[0] == '!' or next[0] == '+') {
                                     try args.flags.put(entry[offset..], true);
                                 } else {
                                     try args.options.put(entry[offset..], next);
@@ -111,11 +102,11 @@ pub const Args = struct {
                         }
                         continue;
                     } else {
-                        if(command == null) {
+                        if (command == null) {
                             var j: usize = 1;
-                            try args.flags.put(entry[j..j+1], true);
-                            while( j < entry.len ) : (j += 1){
-                                try args.flags.put(entry[j..j+1], true);
+                            try args.flags.put(entry[j .. j + 1], true);
+                            while (j < entry.len) : (j += 1) {
+                                try args.flags.put(entry[j .. j + 1], true);
                             }
                         } else {
                             return error.BadOption;
@@ -123,16 +114,16 @@ pub const Args = struct {
                     }
                 },
                 else => {
-                    if(command == null){
+                    if (command == null) {
                         command = entry;
                     } else {
                         try args.positional.append(entry);
                     }
-                }
+                },
             }
         }
 
-        if(command == null) return error.InvalidCommand;
+        if (command == null) return error.NoCommand;
         args.command = command.?;
         return args;
     }
@@ -142,29 +133,28 @@ pub const Args = struct {
         self.flags.deinit();
         self.options.deinit();
     }
-    
+
     pub fn printAllDebug(args: *const Args) !void {
         std.log.debug("All args:", .{});
         std.log.debug("  Flags:", .{});
         var flag_iter = args.flags.iterator();
-        while(flag_iter.next()) |entry| {
-            std.log.debug("    {s} -> {}", .{entry.key_ptr.*, entry.value_ptr.*});
+        while (flag_iter.next()) |entry| {
+            std.log.debug("    {s} -> {}", .{ entry.key_ptr.*, entry.value_ptr.* });
         }
         std.log.debug("  Options:", .{});
         var option_iter = args.options.iterator();
-        while(option_iter.next()) |entry| {
-            std.log.debug("    {s} -> {s}", .{entry.key_ptr.*, entry.value_ptr.*});
+        while (option_iter.next()) |entry| {
+            std.log.debug("    {s} -> {s}", .{ entry.key_ptr.*, entry.value_ptr.* });
         }
         std.log.debug("\n", .{});
     }
 };
 
-
 fn fillFlags(args: *Args, flags: []const ArgumentFormat) !void {
-    for(flags) |flag| {
-        if( flag[1] ) |name| {
-            if( flag[0] ) |short| {
-                if( args.flags.get(short[1..]) )|value|{
+    for (flags) |flag| {
+        if (flag[1]) |name| {
+            if (flag[0]) |short| {
+                if (args.flags.get(short[1..])) |value| {
                     try args.flags.put(name[2..], value);
                 }
             }
@@ -173,10 +163,10 @@ fn fillFlags(args: *Args, flags: []const ArgumentFormat) !void {
 }
 
 fn fillOptions(args: *Args, options: []const ArgumentFormat) !void {
-    for(options) |option| {
-        if( option[1] ) |name| {
-            if( option[0] ) |short| {
-                if( args.options.get(short[1..]) ) |value| {
+    for (options) |option| {
+        if (option[1]) |name| {
+            if (option[0]) |short| {
+                if (args.options.get(short[1..])) |value| {
                     try args.options.put(name[2..], value);
                 }
             }
@@ -184,25 +174,17 @@ fn fillOptions(args: *Args, options: []const ArgumentFormat) !void {
     }
 }
 
-
-pub fn fillCommandArgs(
-    command: *const Command,
-    args: *Args,
-    opts: struct{
-        other_flags: ?[]const ArgumentFormat = null,
-        other_options: ?[]const ArgumentFormat = null
-    }
-) !void {
-    if(command.flags) |flags|{
+pub fn fillCommandArgs(command: *const Command, args: *Args, opts: struct { other_flags: ?[]const ArgumentFormat = null, other_options: ?[]const ArgumentFormat = null }) !void {
+    if (command.flags) |flags| {
         try fillFlags(args, flags);
     }
-    if(opts.other_flags) |flags| {
+    if (opts.other_flags) |flags| {
         try fillFlags(args, flags);
     }
-    if(command.options) |options| {
+    if (command.options) |options| {
         try fillOptions(args, options);
     }
-    if(opts.other_options) |options| {
+    if (opts.other_options) |options| {
         try fillOptions(args, options);
     }
 }
