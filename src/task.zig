@@ -2,7 +2,7 @@ const std = @import("std");
 const datetime = @import("datetime.zig");
 const util = @import("util.zig");
 
-const MAX_FILESIZE:usize = 1024;
+const MAX_FILESIZE: usize = 1024;
 
 pub const TaskStatus = enum(u3) {
     pending,
@@ -26,7 +26,7 @@ pub const Task = struct {
     priority: u8,
     tags: std.ArrayList([]const u8),
     note: []const u8,
-    
+
     status: TaskStatus = .pending,
     days_until_start: ?i32,
     days_until_due: ?i32,
@@ -47,7 +47,7 @@ pub const Task = struct {
         note: []const u8,
 
         status: TaskStatus = .pending,
-        due:   ?datetime.DateTime = null,
+        due: ?datetime.DateTime = null,
         start: ?datetime.DateTime = null,
         today: ?datetime.DateTime = null,
         file_path: ?[]const u8 = null,
@@ -59,12 +59,12 @@ pub const Task = struct {
         var status: TaskStatus = args.status;
         var days_until_due: ?i32 = null;
         var days_until_start: ?i32 = null;
-        if(args.due) |due|{
-            days_until_due = today.deltaDays(due)+1;
+        if (args.due) |due| {
+            days_until_due = today.deltaDays(due) + 1;
         }
-        if(args.start) |start|{
+        if (args.start) |start| {
             days_until_start = today.deltaDays(start);
-            if( days_until_start.? > 0 ){
+            if (days_until_start.? > 0) {
                 status = .waiting;
             } else {
                 status = .active;
@@ -103,22 +103,22 @@ pub const Task = struct {
         relpath: ?[]const u8 = null,
     }) !void {
         var file: std.fs.File = undefined;
-        if(opts.abspath) |abspath| {
-            file = try std.fs.openFileAbsolute(abspath, .{.mode = .read_write});
-        } else if(opts.relpath) |relpath| {
-            file = try std.fs.cwd().openFile(relpath, .{.mode = .read_write});
+        if (opts.abspath) |abspath| {
+            file = try std.fs.openFileAbsolute(abspath, .{ .mode = .read_write });
+        } else if (opts.relpath) |relpath| {
+            file = try std.fs.cwd().openFile(relpath, .{ .mode = .read_write });
         }
         defer file.close();
         try file.setEndPos(0); // clear the file
         const writer = file.writer();
         try writer.writeAll("---\n");
         var iter = props.iterator();
-        while(iter.next()) |entry| {
+        while (iter.next()) |entry| {
             // TODO: Fix lists...
-            if(std.mem.eql(u8, entry.key_ptr.*, "tags")){
-                try writer.print("{s}: [{s}]\n", .{entry.key_ptr.*, entry.value_ptr.*});
+            if (std.mem.eql(u8, entry.key_ptr.*, "tags")) {
+                try writer.print("{s}: [{s}]\n", .{ entry.key_ptr.*, entry.value_ptr.* });
             } else {
-                try writer.print("{s}: {s}\n", .{entry.key_ptr.*, entry.value_ptr.*});
+                try writer.print("{s}: {s}\n", .{ entry.key_ptr.*, entry.value_ptr.* });
             }
         }
         try writer.print("---\n{s}", .{self.note});
@@ -131,67 +131,68 @@ pub const Task = struct {
     }) !void {
         // TODO: handle conflicts
         var file: std.fs.File = undefined;
-        if(opts.dir) |path|{
-            const file_name = try std.fmt.allocPrint(self.alloc, "{s}.md", .{ self.name[0..@min(30, self.name.len)] });
+        if (opts.dir) |path| {
+            const file_name = try std.fmt.allocPrint(self.alloc, "{s}.md", .{self.name[0..@min(30, self.name.len)]});
             defer self.alloc.free(file_name);
             file = try path.createFile(file_name, .{});
-        } else if(opts.abspath) |abspath| {
-            file = try std.fs.openFileAbsolute(abspath, .{.mode = .write_only});
-        } else if(opts.relpath) |relpath| {
-            file = try std.fs.cwd().openFile(relpath, .{.mode = .write_only});
+        } else if (opts.abspath) |abspath| {
+            file = try std.fs.openFileAbsolute(abspath, .{ .mode = .write_only });
+        } else if (opts.relpath) |relpath| {
+            file = try std.fs.cwd().openFile(relpath, .{ .mode = .write_only });
         }
         defer file.close();
         const writer = file.writer();
-        
-        // TODO: add status initializers
-        try writer.print(\\---
-        \\priority: {d}
-        \\status: {s}
-        \\
-        , .{self.priority, @tagName(self.status)});
 
-        if(self.tags.items.len > 0){
+        // TODO: add status initializers
+        try writer.print(
+            \\---
+            \\priority: {d}
+            \\status: {s}
+            \\
+        , .{ self.priority, @tagName(self.status) });
+
+        if (self.tags.items.len > 0) {
             try writer.writeAll("tags: [");
-            for(self.tags.items, 0..) |item, idx| {
-                if( idx < self.tags.items.len - 1){
-                    try writer.print("{s}", .{item});
+            for (self.tags.items, 0..) |item, idx| {
+                if (idx < self.tags.items.len - 1) {
+                    try writer.print("{s}, ", .{item});
                 } else {
-                    try writer.print("{s},", .{item});
+                    try writer.print("{s}", .{item});
                 }
             }
             try writer.writeAll("]\n");
         }
 
-        if( self.due ) |due_date| {
+        if (self.due) |due_date| {
             const due_str = try due_date.toStr(self.alloc);
             defer self.alloc.free(due_str);
             try writer.print("due: {s}\n", .{due_str});
         }
-        if( self.start ) |start_date| {
+        if (self.start) |start_date| {
             const start_str = try start_date.toStr(self.alloc);
             defer self.alloc.free(start_str);
             try writer.print("start: {s}\n", .{start_str});
         }
 
-        try writer.print("---\n# {s}\n{s}", .{self.name, self.note});
+        try writer.print("---\n# {s}\n{s}", .{ self.name, self.note });
     }
 
     fn parseFrontmatter(alloc: std.mem.Allocator, yaml: []const u8) !std.StringHashMap([]const u8) {
         var lines = std.mem.splitSequence(u8, yaml, "\n");
         var propmap = std.StringHashMap([]const u8).init(alloc);
-        while(lines.next()) |raw_line|{
+        while (lines.next()) |raw_line| {
             const line = util.trim(raw_line);
             // process the frontmatter entries
             // frontmatter entries are generally YAML, but I don't support all that right now
-            if(line.len < 1 or line[0] == '#') continue;
+            if (line.len < 1 or line[0] == '#') continue;
             var parts = std.mem.splitScalar(u8, line, ':');
             const name = parts.next().?;
             const value = parts.next();
-            if( value ) |v| {
+            if (value) |v| {
                 var val_str = util.trim(v);
-                if( val_str.len == 0 ){
+                if (val_str.len == 0) {
                     const next_line = util.trim(lines.peek().?);
-                    if( std.mem.startsWith(u8, "  -", next_line) ){
+                    if (std.mem.startsWith(u8, "  -", next_line)) {
                         // this is a YAML multiline list
                         // TODO: Support this
                         continue;
@@ -200,20 +201,20 @@ pub const Task = struct {
                         continue;
                     }
                 } else {
-                    if( val_str[0] == '[' ) {
-                        val_str = val_str[1..val_str.len-1];
+                    if (val_str[0] == '[') {
+                        val_str = val_str[1 .. val_str.len - 1];
                     }
                     try propmap.put(name, val_str);
                 }
             } else {
-                std.log.debug("ERROR ON LINE: {s}, {s}:{s}", .{line, name, value orelse "null"});
+                std.log.debug("ERROR ON LINE: {s}, {s}:{s}", .{ line, name, value orelse "null" });
                 return error.InvalidIdentifier;
             }
         }
         return propmap;
     }
 
-    pub fn fromTaskFile(alloc: std.mem.Allocator, path: []const u8, opts: struct {today: ?datetime.DateTime = null}) !Task {
+    pub fn fromTaskFile(alloc: std.mem.Allocator, path: []const u8, opts: struct { today: ?datetime.DateTime = null }) !Task {
         const file = try std.fs.openFileAbsolute(path, .{});
         defer file.close();
         const metadata = try file.metadata();
@@ -223,27 +224,27 @@ pub const Task = struct {
 
         var propmap: std.StringHashMap([]const u8) = undefined;
 
-        if( !std.mem.startsWith(u8, buf, "---") ){
+        if (!std.mem.startsWith(u8, buf, "---")) {
             // handle a file without frontmatter
             propmap = std.StringHashMap([]const u8).init(alloc);
             var line_iter = std.mem.splitScalar(u8, util.trim(buf), '\n');
-            if(line_iter.next())|first_line|{
-                if( util.trim(first_line)[0] == '#' ){
+            if (line_iter.next()) |first_line| {
+                if (util.trim(first_line)[0] == '#') {
                     try propmap.put("name", util.trim(first_line[1..]));
                 }
             }
             try propmap.put("description", buf);
         } else {
             var parts = std.mem.splitSequence(u8, buf, "---");
-            _ = parts.next();  // first part is empty
+            _ = parts.next(); // first part is empty
             propmap = try Task.parseFrontmatter(alloc, util.trim(parts.next().?));
 
-            if(propmap.get("name") == null) {
-                if(parts.peek()) |description|{
-                    if( description.len > 0 ){
+            if (propmap.get("name") == null) {
+                if (parts.peek()) |description| {
+                    if (description.len > 0) {
                         var line_iter = std.mem.splitScalar(u8, util.trim(description), '\n');
-                        if(line_iter.next())|first_line|{
-                            if( util.trim(first_line)[0] == '#' ){
+                        if (line_iter.next()) |first_line| {
+                            if (util.trim(first_line)[0] == '#') {
                                 try propmap.put("name", util.trim(first_line[1..]));
                             }
                         }
@@ -256,37 +257,37 @@ pub const Task = struct {
         }
 
         // If there's no first header, the best backup option is the filename
-        if( !propmap.contains("name") ) {
+        if (!propmap.contains("name")) {
             try propmap.put("name", std.fs.path.stem(path));
         }
 
         const priority_val = try std.fmt.parseInt(u8, propmap.get("priority") orelse "0", 10);
 
         var due: ?datetime.DateTime = null;
-        if(propmap.get("due")) |due_str| {
+        if (propmap.get("due")) |due_str| {
             due = try datetime.DateTime.fromDateString(due_str);
         }
         var start: ?datetime.DateTime = null;
-        if(propmap.get("start")) |start_str| {
+        if (propmap.get("start")) |start_str| {
             start = try datetime.DateTime.fromDateString(start_str);
         }
 
         var tag_list = std.ArrayList([]const u8).init(alloc);
         const tag_str = propmap.get("tags") orelse "";
-        if(tag_str.len > 0){
+        if (tag_str.len > 0) {
             var tag_iter = std.mem.splitScalar(u8, tag_str, ',');
-            while(tag_iter.next()) |tag| {
-                if(tag.len > 0) try tag_list.append(util.trim(tag));
+            while (tag_iter.next()) |tag| {
+                if (tag.len > 0) try tag_list.append(util.trim(tag));
             }
         }
         return Task.init(alloc, .{
             .today = opts.today,
-            .name     = propmap.get("name") orelse std.fs.path.basename(path),
-            .start  = start,
-            .due      = due,
+            .name = propmap.get("name") orelse std.fs.path.basename(path),
+            .start = start,
+            .due = due,
             .priority = priority_val,
-            .tags     = tag_list,
-            .note     = util.trim(propmap.get("description") orelse ""),
+            .tags = tag_list,
+            .note = util.trim(propmap.get("description") orelse ""),
             .status = std.meta.stringToEnum(TaskStatus, propmap.get("status") orelse "pending") orelse .pending,
 
             .file_path = path,
@@ -295,33 +296,28 @@ pub const Task = struct {
         });
     }
 
-    pub fn makeStr(
-        self: *const Task,
-        alloc: std.mem.Allocator,
-        opts: struct {
-                short: bool = false,
-                end: []const u8 = "\n",
-                linewidth: u8 = 80,
-            }
-        ) ![]const u8 {
-
-        const name_col_len: usize = if(opts.short) 50 else opts.linewidth-8;
+    pub fn makeStr(self: *const Task, alloc: std.mem.Allocator, opts: struct {
+        short: bool = false,
+        end: []const u8 = "\n",
+        linewidth: u8 = 80,
+    }) ![]const u8 {
+        const name_col_len: usize = if (opts.short) 50 else opts.linewidth - 8;
         var name_col = try alloc.dupe(u8, " " ** 256);
-        const name_len = if(self.name.len <= name_col_len) self.name.len else name_col_len;
+        const name_len = if (self.name.len <= name_col_len) self.name.len else name_col_len;
         defer alloc.free(name_col);
         std.mem.copyForwards(u8, name_col, self.name[0..name_len]);
-        if( self.name.len > name_col_len ){
-            name_col[name_len-1] = '.';
-            name_col[name_len-2] = '.';
-            name_col[name_len-3] = '.';
+        if (self.name.len > name_col_len) {
+            name_col[name_len - 1] = '.';
+            name_col[name_len - 2] = '.';
+            name_col[name_len - 3] = '.';
         }
         name_col = name_col[0..name_col_len];
 
         var datefmt: ?[]const u8 = null;
-        if( self.due ) |_| {
-            if(self.days_until_due.? > 0) {
-                if( self.start )|_|{
-                    if(self.days_until_start.? <= 0){
+        if (self.due) |_| {
+            if (self.days_until_due.? > 0) {
+                if (self.start) |_| {
+                    if (self.days_until_start.? <= 0) {
                         // middle of the task timeline
                         datefmt = try std.fmt.allocPrint(alloc, "{d}d remaining", .{self.days_until_due.?});
                     } else {
@@ -331,79 +327,63 @@ pub const Task = struct {
                 } else {
                     datefmt = try std.fmt.allocPrint(alloc, "Due in {d}d", .{self.days_until_due.?});
                 }
-            } else if (self.days_until_due.? < 0){
-                datefmt = try std.fmt.allocPrint(alloc, "Due {d}d ago", .{-1*self.days_until_due.?});
+            } else if (self.days_until_due.? < 0) {
+                datefmt = try std.fmt.allocPrint(alloc, "Due {d}d ago", .{-1 * self.days_until_due.?});
             } else {
                 datefmt = try std.fmt.allocPrint(alloc, "Due today!", .{});
             }
-        } else if( self.start ) |_| {
-            if(self.days_until_start.? > 0) {
+        } else if (self.start) |_| {
+            if (self.days_until_start.? > 0) {
                 datefmt = try std.fmt.allocPrint(alloc, "Starts in {d}d", .{self.days_until_start.?});
-            } else if (self.days_until_start.? < 0){
-                datefmt = try std.fmt.allocPrint(alloc, "Started {d}d ago", .{-1*self.days_until_start.?});
+            } else if (self.days_until_start.? < 0) {
+                datefmt = try std.fmt.allocPrint(alloc, "Started {d}d ago", .{-1 * self.days_until_start.?});
             } else {
                 datefmt = try std.fmt.allocPrint(alloc, "Starts today!", .{});
             }
         }
         const datestr = datefmt orelse "Anytime";
         defer {
-            if(datefmt != null) alloc.free(datefmt.?);
+            if (datefmt != null) alloc.free(datefmt.?);
         }
 
-
-        const checkbox = switch(self.status) {
+        const checkbox = switch (self.status) {
             .pending => "[ ] ",
             .waiting => "[z] ",
-            .hidden  => "[_] ",
-            .active  => "[-] ",
-            .done    => "[x] "
+            .hidden => "[_] ",
+            .active => "[-] ",
+            .done => "[x] ",
         };
 
         var priority_symbol: u8 = '.';
-        if(self.priority > 2 and self.priority <= 4) {
+        if (self.priority > 2 and self.priority <= 4) {
             priority_symbol = '-';
-        } else if(self.priority > 4 and self.priority <= 6) {
+        } else if (self.priority > 4 and self.priority <= 6) {
             priority_symbol = '=';
-        } else if(self.priority > 6 and self.priority <= 8) {
+        } else if (self.priority > 6 and self.priority <= 8) {
             priority_symbol = 'o';
-        } else if(self.priority > 8) {
+        } else if (self.priority > 8) {
             priority_symbol = '#';
         }
 
-        if(opts.short){
-            return try std.fmt.allocPrint(
-                alloc,
-                "{s} {c}  {s}  {s}{s}",
-                .{
-                    checkbox,
-                    priority_symbol,
-                    name_col,
-                    datestr,
-                    opts.end,
-                }
-            );
+        if (opts.short) {
+            return try std.fmt.allocPrint(alloc, "{s} {c}  {s}  {s}{s}", .{
+                checkbox,
+                priority_symbol,
+                name_col,
+                datestr,
+                opts.end,
+            });
         } else {
             const tag_str = try std.mem.join(alloc, ", ", self.tags.items);
             defer alloc.free(tag_str);
 
-            if(self.note.len == 0){
-                return try std.fmt.allocPrint(
-                    alloc,
-                    "{s} {c}  {s}\n    {s}\n    Tags: {{{s}}}{s}",
-                    .{
-                        checkbox,
-                        priority_symbol,
-                        name_col,
-                        datestr,
-                        tag_str,
-                        opts.end
-                    }
-                );
+            if (self.note.len == 0) {
+                return try std.fmt.allocPrint(alloc, "{s} {c}  {s}\n    {s}\n    Tags: {{{s}}}{s}", .{ checkbox, priority_symbol, name_col, datestr, tag_str, opts.end });
             } else {
                 var note_lines = std.ArrayList([]const u8).init(alloc);
                 defer note_lines.deinit();
                 var note_paragraphs = std.mem.splitSequence(u8, self.note, "\n");
-                while(note_paragraphs.next()) |original_paragraph|{
+                while (note_paragraphs.next()) |original_paragraph| {
                     // var paragraph = try alloc.dupe(u8, original_paragraph);
                     // paragraph = paragraph;
                     // _ = std.mem.replace(u8, original_paragraph, "\n", "\n ", paragraph);
@@ -421,9 +401,9 @@ pub const Task = struct {
                     const line_start = "       ";
                     try current_line.append(line_start);
                     var line_length = line_start.len + 1;
-                    while(words.next()) |word| {
+                    while (words.next()) |word| {
                         const new_len = word.len + line_length - 1;
-                        if( new_len >= opts.linewidth + 4 ) {
+                        if (new_len >= opts.linewidth + 4) {
                             // create new line
                             const full_line = try std.mem.join(alloc, " ", current_line.items);
                             try paragraph_lines.append(full_line);
@@ -443,26 +423,14 @@ pub const Task = struct {
                 const note = try std.mem.join(alloc, "\n", note_lines.items);
                 defer alloc.free(note);
 
-                return try std.fmt.allocPrint(
-                    alloc,
-                    "{s} {c}  {s}\n    {s}\n    Tags: {{{s}}}\n    Note:\n{s}{s}",
-                    .{
-                        checkbox,
-                        priority_symbol,
-                        name_col,
-                        datestr,
-                        tag_str,
-                        note,
-                        opts.end
-                    }
-                );
+                return try std.fmt.allocPrint(alloc, "{s} {c}  {s}\n    {s}\n    Tags: {{{s}}}\n    Note:\n{s}{s}", .{ checkbox, priority_symbol, name_col, datestr, tag_str, note, opts.end });
             }
         }
     }
 
     pub fn mark(self: *Task, status: TaskStatus) !void {
         self.status = status;
-        if(self.file_path) |path| {
+        if (self.file_path) |path| {
             const file = try std.fs.openFileAbsolute(path, .{});
             defer file.close();
 
@@ -470,22 +438,22 @@ pub const Task = struct {
             const buf = try reader.readAllAlloc(self.alloc, MAX_FILESIZE);
             var propmap: std.StringHashMap([]const u8) = undefined;
 
-            if( !std.mem.startsWith(u8, buf, "---") ){
+            if (!std.mem.startsWith(u8, buf, "---")) {
                 // handle a file without frontmatter
                 propmap = std.StringHashMap([]const u8).init(self.alloc);
             } else {
                 var parts = std.mem.splitSequence(u8, buf, "---");
-                _ = parts.next();  // first part is empty
+                _ = parts.next(); // first part is empty
                 propmap = try Task.parseFrontmatter(self.alloc, util.trim(parts.next().?));
             }
             try propmap.put("status", @tagName(status));
-            try self.updateFileFrontmatter(propmap, .{.abspath = path});
+            try self.updateFileFrontmatter(propmap, .{ .abspath = path });
         }
     }
 
     pub fn olderThan(self: Task, other: Task) bool {
-        if(self.file_meta.?.created()) |self_created|{
-            if(other.file_meta.?.created()) |other_created|{
+        if (self.file_meta.?.created()) |self_created| {
+            if (other.file_meta.?.created()) |other_created| {
                 return self_created > other_created;
             }
             return true;
@@ -498,8 +466,8 @@ pub const Task = struct {
     }
 
     pub fn dueSoonerThan(self: Task, other: Task) bool {
-        if(self.days_until_due) |self_days_until_due|{
-            if(other.days_until_due) |other_days_until_due|{
+        if (self.days_until_due) |self_days_until_due| {
+            if (other.days_until_due) |other_days_until_due| {
                 return self_days_until_due < other_days_until_due;
             }
             return true;
@@ -508,8 +476,8 @@ pub const Task = struct {
     }
 
     pub fn startsSoonerThan(self: Task, other: Task) bool {
-        if(self.days_until_start) |self_days_until_start|{
-            if(other.days_until_start) |other_days_until_start|{
+        if (self.days_until_start) |self_days_until_start| {
+            if (other.days_until_start) |other_days_until_start| {
                 return self_days_until_start < other_days_until_start;
             }
             return true;
@@ -518,45 +486,38 @@ pub const Task = struct {
     }
 
     pub fn sortWithContext(context: SortAttribute, a: Task, b: Task) bool {
-        return switch(context) {
+        return switch (context) {
             .priority => b.moreImportantThan(a),
-            .due      => b.dueSoonerThan(a),
-            .start    => b.startsSoonerThan(a),
-            else      => b.olderThan(a)
+            .due => b.dueSoonerThan(a),
+            .start => b.startsSoonerThan(a),
+            else => b.olderThan(a),
         };
     }
 };
 
-
 /// Will use the allocator attached to the task_list
-pub fn loadLocationToList(task_list: *std.ArrayList(Task), opts: struct{
+pub fn loadLocationToList(task_list: *std.ArrayList(Task), opts: struct {
     rel_location: ?[]const u8 = null,
     abs_location: ?[]const u8 = null,
     today: ?datetime.DateTime = null,
 }) !void {
     var d: std.fs.Dir = undefined;
-    if( opts.rel_location ) |location| {
+    if (opts.rel_location) |location| {
         std.log.debug("Trying to access relative path: {s}", .{location});
-        d = try std.fs.cwd().openDir(location, .{.iterate = true});
-    } else if( opts.abs_location ) |location| {
+        d = try std.fs.cwd().openDir(location, .{ .iterate = true });
+    } else if (opts.abs_location) |location| {
         std.log.debug("Trying to access absolute path: {s}", .{location});
-        d = try std.fs.openDirAbsolute(location, .{.iterate=true});
+        d = try std.fs.openDirAbsolute(location, .{ .iterate = true });
     } else {
         return error.NoPathSpecified;
     }
 
     var iter = d.iterate();
-    while( try iter.next() ) |entry| {
-        if(entry.kind == .file){
+    while (try iter.next()) |entry| {
+        if (entry.kind == .file) {
             std.log.debug("\t\tFound \"{s}\"", .{entry.name});
-            if( std.mem.endsWith(u8, entry.name, ".md") ){
-                try task_list.append(
-                    try Task.fromTaskFile(
-                        task_list.allocator,
-                        try d.realpathAlloc(task_list.allocator, entry.name),
-                        .{.today = opts.today}
-                    )
-                );
+            if (std.mem.endsWith(u8, entry.name, ".md")) {
+                try task_list.append(try Task.fromTaskFile(task_list.allocator, try d.realpathAlloc(task_list.allocator, entry.name), .{ .today = opts.today }));
             }
         }
     }
