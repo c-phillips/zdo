@@ -20,7 +20,7 @@ pub const global_flags: []const ArgumentFormat = &.{
 pub const global_options: []const ArgumentFormat = &.{
     .{ null, "--dirs", "Comma separated list of task directories to include" },
     .{
-        "-s", "--sort", 
+        "-s", "--sort",
         \\Task attribute to sort (ascending by default)
         \\          `c`,`creation`  [Default] Task file creation date
         \\          `p`,`priority`  Task priortiy
@@ -163,6 +163,7 @@ pub const Board = struct {
             const global_tasks_path = try std.fs.path.join(alloc, &.{ appdata_path, "global_tasks" });
             var appdata_dir = std.fs.openDirAbsolute(global_tasks_path, .{}) catch |err| switch (err) {
                 error.FileNotFound => blk: {
+                    try std.fs.makeDirAbsolute(appdata_path);
                     try std.fs.makeDirAbsolute(global_tasks_path);
                     break :blk try std.fs.openDirAbsolute(global_tasks_path, .{});
                 },
