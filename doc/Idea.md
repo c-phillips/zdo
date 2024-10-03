@@ -414,3 +414,25 @@ _0   [ ]  .  complete mark command                                Anytime
 _1   [ ]  .  consider making a cli table system                   Anytime
 
 ```
+
+## Handling "Natural Language" Dates
+It would be exceptionally convenient if the application could accept something more natural for the due date position of a task.
+Right now (Oct 2, 2024) the only accepted date format is YYYY-MM-DD, which isn't very ergonomic.
+In the majority of cases, you really don't even *want* to specify the year since the task is due within a few days or weeks.
+The time locality of task planning means that most of the datestring is redundant...
+
+I think a reasonable place to start is with some simple numeric offsets.
+For example:
+- `1 week` would be $TODAY + 7 days
+- `5 days` would be $TODAY + 5 days
+- `one month` would be $TODAY + 30 days
+- `2 years` would be $TODAY + 365 days (+1 for leap years)
+
+A natural extension would be prepositional offsets.
+For example:
+- `next Tuesday`
+- `next Month` (ambiguous if +30 days or 1st of the month)
+- `2 weeks from Thursday`
+- `1 week after &id` where id is a task id
+- `tuesday after next`
+- `friday after &id`
