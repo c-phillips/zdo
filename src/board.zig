@@ -58,7 +58,7 @@ pub const Board = struct {
         \\
         , .flags = &.{
             .{ "-g", "--global", "Make the new task global" },
-            .{ "-i", null, "Interactively add an additional description" },
+            .{ "-i", null, "(WIP) Interactively add an additional description" },
         }, .options = &.{
             .{ "-d", "--due", "Due date in YYYY-MM-DD format" },
             .{ "-s", "--start", "Start date in YYYY-MM-DD format" },
@@ -91,8 +91,8 @@ pub const Board = struct {
         \\
         , .flags = &.{ .{ "-l", "--long", "Print long-form tasks" }, .{ "-f", "--flat", "Use a flat structure when displaying and sorting" } }, .action = @This().list },
         .{ .name = "view", .description = 
-        \\Update a task's status
-        \\      > zdo [flags...] view id
+        \\Print a detailed view of the selected task
+        \\      > zdo [flags...] view [id]
         \\  
         \\      Example:
         \\      > zdo view i3
