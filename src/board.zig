@@ -74,16 +74,16 @@ pub const Board = struct {
         \\
         \\      Filters:
         \\            +   ->  Keep Only
-        \\            !   ->  Keep All Except
-        \\        (+/!)   ->  Default Title & Tags
-        \\        (+/!) : ->  Tags
-        \\        (+/!) # ->  Title
-        \\        (+/!) ? ->  Note
-        \\        (+/!) * ->  All above
-        \\        (+/!) @ ->  Status
+        \\            _   ->  Keep All Except
+        \\        (+/_)   ->  Default Title & Tags
+        \\        (+/_) : ->  Tags
+        \\        (+/_) # ->  Title
+        \\        (+/_) ? ->  Note
+        \\        (+/_) * ->  All above
+        \\        (+/_) @ ->  Status
         \\
         \\      Example:
-        \\      > zdo !:personal +#issue list
+        \\      > zdo _:personal +#issue list
         \\      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         \\        |
         \\        +-> list all tasks that are NOT tagged `personal`

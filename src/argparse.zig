@@ -72,7 +72,7 @@ pub const Args = struct {
             if (entry.len < 1) continue;
             switch (entry[0]) {
                 '+' => try args.filters.append(entry),
-                '!' => try args.filters.append(entry),
+                '_' => try args.filters.append(entry),
                 '-' => {
                     if (entry.len == 1) return error.InvalidArgument;
                     if (entry[1] == '-' or command != null) {
