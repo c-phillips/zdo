@@ -451,6 +451,15 @@ pub const Task = struct {
         }
     }
 
+    pub fn delete(self: *Task) !void {
+        if (self.file_path) |path| {
+            // assume an absolute filepath
+            try std.fs.deleteFileAbsolute(path);
+        } else {
+            return error.NotAFile;
+        }
+    }
+
     pub fn olderThan(self: Task, other: Task) bool {
         if (self.file_meta.?.created()) |self_created| {
             if (other.file_meta.?.created()) |other_created| {

@@ -120,6 +120,19 @@ pub const Board = struct {
             .{ "-w", "--waiting", "Mark task as waiting" },
             .{ "-a", "--active", "Mark task as complete" },
         }, .action = @This().mark },
+        .{ .name = "rm", .description = 
+        \\Remove a task
+        \\      This will delete the file associated with the task.
+        \\
+        \\      > zdo rm id
+        \\
+        \\      Example:
+        \\      > zdo rm 4
+        \\      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        \\        |
+        \\        +-> delete the markdown file associated with task 4
+        \\
+        , .action = @This().delete },
     },
 
     pub fn init(alloc: std.mem.Allocator, args: Args) !Board {
@@ -369,5 +382,10 @@ pub const Board = struct {
         try task.mark(status);
         // try stderr.writeAll("\n~*.'[ Done! ]'.*~\n\n");
         try self.list(args);
+    }
+
+    pub fn delete(self: *Board, args: Args) !void {
+        const task = try self.getTaskFromArgs(args);
+        try task.delete();
     }
 };
