@@ -132,7 +132,10 @@ pub const Board = struct {
         \\        |
         \\        +-> delete the markdown file associated with task 4
         \\
-        , .action = @This().delete },
+        , .flags = &.{
+            .{ "-y", "--yes", "Delete without confirming" },
+            .{ "-s", "--silent", "Don't list after delete" },
+        }, .action = @This().delete },
     },
 
     pub fn init(alloc: std.mem.Allocator, args: Args) !Board {
@@ -386,6 +389,18 @@ pub const Board = struct {
 
     pub fn delete(self: *Board, args: Args) !void {
         const task = try self.getTaskFromArgs(args);
+        if (args.flags.get("yes") == null) {
+            const stderr = std.io.getStdErr().writer();
+            try self.view(args);
+            try stderr.print("Do you want to delete this task? [y/N]", .{});
+            const stdin = std.io.getStdIn().reader();
+            const value = try stdin.readUntilDelimiterAlloc(self.alloc, '\n', 4);
+            if (value[0] != 'y' and value[0] != 'Y') return;
+        }
         try task.delete();
+
+        // FIXME
+        // if (args.flags.get("silent") != null) return;
+        // try self.list(args);
     }
 };
