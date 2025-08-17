@@ -139,6 +139,9 @@ pub const Board = struct {
     },
 
     pub fn init(alloc: std.mem.Allocator, args: Args) !Board {
+        var env_map = try std.process.getEnvMap(alloc);
+        defer env_map.deinit();
+        
         var task_locations = std.ArrayList([]const u8).init(alloc);
 
         var cwd_task_dir = std.fs.cwd().openDir(".tasks", .{}) catch |err| switch (err) {
@@ -176,12 +179,12 @@ pub const Board = struct {
         var global_location: ?[]const u8 = null;
         if (!args.flags.contains("current")) {
             const appdata_path = try std.fs.getAppDataDir(alloc, "zdo");
-            const global_tasks_path = try std.fs.path.join(alloc, &.{ appdata_path, "global_tasks" });
-            var appdata_dir = std.fs.openDirAbsolute(global_tasks_path, .{}) catch |err| switch (err) {
+            const default_global_tasks_path = try std.fs.path.join(alloc, &.{ appdata_path, "global_tasks" });
+            const global_tasks_path = env_map.get("ZDO_GLOBAL_TASK_DIR") orelse default_global_tasks_path;
+            var appdata_dir = std.fs.cwd().openDir(global_tasks_path, .{}) catch |err| switch (err) {
                 error.FileNotFound => blk: {
-                    try std.fs.makeDirAbsolute(appdata_path);
-                    try std.fs.makeDirAbsolute(global_tasks_path);
-                    break :blk try std.fs.openDirAbsolute(global_tasks_path, .{});
+                    try std.fs.cwd().makePath(global_tasks_path);
+                    break :blk try std.fs.cwd().openDir(global_tasks_path, .{});
                 },
                 else => return err,
             };

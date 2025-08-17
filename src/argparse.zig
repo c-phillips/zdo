@@ -47,14 +47,14 @@ pub const Command = struct {
 
 pub const Args = struct {
     exe_path: []const u8,
-    raw_args: [][]const u8,
+    raw_args: [][:0] u8,
     filters: std.ArrayList([]const u8),
     flags: std.StringHashMap(bool),
     options: std.StringHashMap([]const u8),
     positional: std.ArrayList([]const u8),
     command: []const u8 = undefined,
 
-    pub fn init(alloc: std.mem.Allocator, raw_args: [][]const u8) !Args {
+    pub fn init(alloc: std.mem.Allocator, raw_args: [][:0] u8) !Args {
         var args = Args{
             .exe_path = raw_args[0],
             .raw_args = raw_args,
