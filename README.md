@@ -8,7 +8,7 @@ No lock-in, no worries
 > ⚠ Currently in pre-alpha stage, don't expect this not to crash or break something!
 
 ## Install
-This project uses Zig 0.13.0 for now. You can get it from [here](https://ziglang.org/download).
+This project uses Zig 0.14.0. You can get it from [here](https://ziglang.org/download).
 
 To build the executable for use, run
 ```bash
@@ -129,3 +129,7 @@ And if you'd like to see a more detailed view of a given task, just use the `vie
 
         [0] Within a relative index registry
 ```
+
+## Configuration
+There will be more configuration options soon, but for now you can configure your global task directory with the `ZDO_GLOBAL_TASK_DIR` environment variable.
+By default, the global task directory will be set to your default application data directory.
