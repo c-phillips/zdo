@@ -215,7 +215,7 @@ pub const Task = struct {
     }
 
     pub fn fromTaskFile(alloc: std.mem.Allocator, path: []const u8, opts: struct { today: ?datetime.DateTime = null }) !Task {
-        const file = try std.fs.openFileAbsolute(path, .{});
+        const file = try std.fs.cwd().openFile(path, .{});
         defer file.close();
         const metadata = try file.metadata();
 
@@ -229,8 +229,10 @@ pub const Task = struct {
             propmap = std.StringHashMap([]const u8).init(alloc);
             var line_iter = std.mem.splitScalar(u8, util.trim(buf), '\n');
             if (line_iter.next()) |first_line| {
-                if (util.trim(first_line)[0] == '#') {
-                    try propmap.put("name", util.trim(first_line[1..]));
+                if (first_line.len > 0){
+                    if (util.trim(first_line)[0] == '#') {
+                        try propmap.put("name", util.trim(first_line[1..]));
+                    }
                 }
             }
             try propmap.put("description", buf);

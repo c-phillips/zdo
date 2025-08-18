@@ -31,9 +31,9 @@ An individual task unit in `zdo` is a single markdown file.
 Whenever you invoke it, `zdo` will check for a local `.tasks` directory and/or the global tasks directory, and iterate through its contents.
 See the configuration section for more information about where global tasks are stored.
 
-Each file should have a yaml frontmatter that looks something like this:
+Each file may have a yaml frontmatter that looks something like this:
 
-```markdown
+```md
 ---
 due: 2024-06-20
 priority: 3
@@ -48,7 +48,16 @@ Because every task is a simple text file, it is also super simple to sync over j
 This also means you can stop using `zdo` at any time without losing track of where you're at.
 
 ## How to use it
-See all the commands with `zdo help` or you can get started right away by adding your first task:
+See all the commands with `zdo help` or you can get started right away by manually adding your first task:
+```bash
+echo '' > .tasks/'simplest possible task.md'
+```
+then view your tasks with,
+```bash
+zdo list
+```
+
+Lets try adding a more complex task using `zdo add`:
 ```bash
 zdo add Get better at programming +ci --priority 3
 ```
@@ -62,7 +71,7 @@ tags: [ci,]
 # Get better at programming
 ```
 
-> ✏ Note: The first `# Heading Level 1` line will be used for the task name
+> ✏ Note: The first `# Heading Level 1` line will be used for the task name if it exists
 
 You can edit this file and add whatever you'd like to it. Here's an example task for this very project:
 ```md
@@ -87,9 +96,7 @@ Global tasks have a reserved prefix: `_2`.
 [0] Within a relative index registry
 ```
 
-The `.tasks` directory is also where all of your task files will live together in anarchy! No wait, you can actually establish a hierarchy and your tasks will be grouped accordingly.
-
-To see all of your tasks just use:
+The `.tasks` directory is also where all of your task files will live together in anarchy! No wait, you can actually establish a hierarchy by placing your tasks in subdirectories and your tasks will be grouped accordingly.
 ```
 ~$ zdo list
 
