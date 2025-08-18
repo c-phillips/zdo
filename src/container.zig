@@ -12,6 +12,8 @@ const Command = argparse.Command;
 const util = @import("util.zig");
 const trim = util.trim;
 
+const Filters = @import("filters.zig");
+
 pub const Container = struct {
     alloc: std.mem.Allocator,
     abspath: []const u8,
@@ -40,6 +42,8 @@ pub const Container = struct {
         }
         // this is created with a realpathAlloc during init
         self.alloc.free(self.abspath);
+        self.alloc.free(self.task_map);
+        self.alloc.free(self.tasks);
     }
 
     pub fn init(alloc: std.mem.Allocator, path: []const u8, opts: struct {
@@ -53,8 +57,8 @@ pub const Container = struct {
 
         // check for other subdirectories to load as children
         // TODO: wrap this into the task loading function to prevent iterating through the filesystem twice
-        const dir = try std.fs.openDirAbsolute(abspath, .{ .iterate = true });
-        // defer dir.close();
+        var dir = try std.fs.cwd().openDir(abspath, .{ .iterate = true });
+        defer dir.close();
         var children_locations = std.ArrayList([]const u8).init(alloc);
         defer children_locations.deinit();
         var iter = dir.iterate();
@@ -146,6 +150,7 @@ pub const Container = struct {
                 if (have_tasks or self.valid_child_tasks) {
                     if (self.level == 1) {
                         const tab = try std.fmt.allocPrint(self.alloc, "( {s} )", .{self.dirname});
+                        defer self.alloc.free(tab);
                         var baseline = try self.alloc.dupe(u8, "." ++ "- " ** 19 ++ "  " ++ " -" ** 19 ++ ".\n");
                         std.mem.copyForwards(u8, baseline[40 - (tab.len / 2) ..], tab);
                         try stdout.writeAll(baseline);
@@ -155,6 +160,7 @@ pub const Container = struct {
                                 try std.fmt.allocPrint(self.alloc, "{{ {s} > {s} }}", .{ parent.dirname, self.dirname })
                             else
                                 try std.fmt.allocPrint(self.alloc, "{{ .. > {s} > {s} }}", .{ parent.dirname, self.dirname });
+                            defer self.alloc.free(tabname);
                             try stdout.print("{s: ^80}\n", .{tabname});
                         } else {
                             std.log.debug("{s} is orphaned", .{self.dirname});
@@ -170,10 +176,10 @@ pub const Container = struct {
             if (task._filtered) continue;
 
             const str = try task.makeStr(self.alloc, .{ .short = !args.long, .linewidth = 76 });
-            // defer self.alloc.free(str);
+            defer self.alloc.free(str);
 
             const output = try std.fmt.allocPrint(self.alloc, "{s: <5}{s}", .{ task._id.?, str });
-            // defer self.alloc.free(output);
+            defer self.alloc.free(output);
 
             try stdout.writeAll(output);
             if (args.long) {
@@ -205,7 +211,7 @@ pub const Container = struct {
         var task_map = std.StringHashMap(*Task).init(self.alloc);
         for (self.tasks.items, 0..) |*task, idx| {
             task._id = try std.fmt.allocPrint(task.alloc, "{s}{d}", .{ self.prefix, idx });
-            task._filtered = try Container.filterTask(task, args);
+            task._filtered = try Filters.filterTask(task, args);
             try task_map.put(task._id.?, task);
         }
         self.task_map = task_map;
@@ -255,11 +261,6 @@ pub const Container = struct {
             if (task_map.get(id)) |v| return v;
             if (self.children) |children| {
                 for (children.items) |child| {
-                    if (child.task_map) |child_map| {
-                        if (child_map.get(id)) |v| return v;
-                    }
-                }
-                for (children.items) |child| {
                     const task = try child.getTaskById(id);
                     if (task) |v| return v;
                 }
@@ -267,113 +268,5 @@ pub const Container = struct {
             return null;
         }
         return error.NoTasksLoaded;
-    }
-
-    pub fn filterTask(task: *const Task, args: Args) !bool {
-        var ok = true;
-        for (args.filters.items) |item| {
-            std.debug.print("Filter item {s}\n", .{item});
-            const color: bool = switch (item[0]) {
-                '+' => true,
-                '_' => false,
-                else => return error.BadFilterColor,
-            };
-            switch (item[1]) {
-                ':' => {
-                    // this is a tag filter
-                    if (item.len < 3) return error.FilterTooShort;
-                    const value = item[2..];
-                    var has = false;
-                    for (task.tags.items) |tag| {
-                        has = has or std.mem.eql(u8, value, tag);
-                    }
-                    ok = ok and !(color != has);
-                },
-                '#' => {
-                    // this is a title filter
-                    if (item.len < 3) return error.FilterTooShort;
-                    const value = item[2..];
-                    var has = false;
-                    var words = std.mem.splitScalar(u8, task.name, ' ');
-                    while (words.next()) |word| {
-                        has = has or std.mem.eql(u8, value, word);
-                    }
-                    ok = ok and !(color != has);
-                },
-                '?' => {
-                    // this is a note filter
-                    if (item.len < 3) return error.FilterTooShort;
-                    if (task.note.len > 0) {
-                        const value = item[2..];
-                        var has = false;
-                        var words = std.mem.splitScalar(u8, task.note, ' ');
-                        while (words.next()) |word| {
-                            has = has or std.mem.eql(u8, value, word);
-                        }
-                        ok = ok and !(color != has);
-                    }
-                },
-                '*' => {
-                    // everything filter
-                    if (item.len < 3) return error.FilterTooShort;
-                    const value = item[2..];
-
-                    // this is a tag filter
-                    var has = false;
-                    for (task.tags.items) |tag| {
-                        has = has or std.mem.eql(u8, value, tag);
-                    }
-                    ok = ok and !(color != has);
-
-                    // this is a title filter
-                    var words = std.mem.splitScalar(u8, task.name, ' ');
-                    while (words.next()) |word| {
-                        has = has or std.mem.eql(u8, value, word);
-                    }
-                    ok = ok and !(color != has);
-
-                    // this is a note filter
-                    if (task.note.len > 0) {
-                        words = std.mem.splitScalar(u8, task.note, ' ');
-                        while (words.next()) |word| {
-                            has = has or std.mem.eql(u8, value, word);
-                        }
-                        ok = ok and !(color != has);
-                    }
-                },
-                '@' => {
-                    // this is a status filter
-                    if (item.len < 3) return error.FilterTooShort;
-                    const value_str = item[2..];
-                    const value_enum = std.meta.stringToEnum(tasklib.TaskStatus, value_str);
-                    if (value_enum) |value| {
-                        const has: bool = task.status == value;
-                        ok = ok and !(color != has);
-                        std.log.debug("Filtering [{s}] for status value {}  ->  {} => {}", .{ task.name, value, has, ok });
-                    } else {
-                        std.log.err("Bad status name: {s}", .{value_str});
-                    }
-                },
-                else => {
-                    std.log.debug("Filtering [{s}] for tag and title by default <{s}>", .{ task.name, item });
-                    // by default filter tags and title
-                    if (item.len < 2) return error.FilterTooShort;
-                    const value = item[1..];
-
-                    // this is a tag filter
-                    var has = false;
-                    for (task.tags.items) |tag| {
-                        has = has or std.mem.eql(u8, value, tag);
-                    }
-
-                    var words = std.mem.splitScalar(u8, task.name, ' ');
-                    while (words.next()) |word| {
-                        has = has or std.mem.eql(u8, value, word);
-                    }
-                    ok = ok and !(color != has);
-                },
-            }
-        }
-        return !ok;
     }
 };

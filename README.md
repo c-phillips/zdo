@@ -8,16 +8,43 @@ No lock-in, no worries
 > ⚠ Currently in pre-alpha stage, don't expect this not to crash or break something!
 
 ## Install
-This project uses Zig 0.14.0. You can get it from [here](https://ziglang.org/download).
+This project is currently on Zig 0.14.0. You can get it from [here](https://ziglang.org/download).
 
 To build the executable for use, run
+
 ```bash
-zig build -Drelase=true
+zig build -Drelease=true
 ```
-Then add it to your system path or `bin` directory.
+
+Then move the executable from the `./zig-out/bin/` directory to somewhere on your `$PATH`.
+
+To confirm everything is working, and get some helpful info, run:
+
+```bash
+zdo help --long
+```
 
 In the future, this repository may host prebuilt binaries for easier installation.
 
+## How it works
+An individual task unit in `zdo` is a single markdown file.
+Whenever you invoke it, `zdo` will check for a local `.tasks` directory and/or the global tasks directory, and iterate through its contents.
+See the configuration section for more information about where global tasks are stored.
+
+Each file should have a yaml frontmatter that looks something like this:
+
+```markdown
+---
+due: 2024-06-20
+priority: 3
+status: pending
+tags: [home,]
+start: 2024-06-07
+---
+```
+
+which allows us to catalog and track tasks without keeping additional artifacts.
+This also means you can stop using `zdo` at any time without losing track of where you're at.
 
 ## How to use it
 See all the commands with `zdo help` or you can get started right away by adding your first task:

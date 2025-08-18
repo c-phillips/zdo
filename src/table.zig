@@ -75,20 +75,10 @@ pub const Table = struct{
         };
     }
     
-    /// Will prefer the abspath if provided
-    pub fn fromCSV(alloc: std.mem.Allocator, opts: struct {
-        relpath: ?[]const u8 = null,
-        abspath: ?[]const u8 = null,
+    pub fn fromCSV(alloc: std.mem.Allocator, path: []const u8, opts: struct {
         header: bool = false,
     }) !Table{
-        var file: std.fs.File = undefined;
-        if( opts.abspath ) |abspath| {
-            file = try std.fs.openFileAbsolute(abspath, .{});
-        } else if( opts.relpath ) |relpath| {
-            file = try std.fs.cwd().openFile(relpath, .{});
-        } else {
-            return error.NoPathSpecified;
-        }
+        var file = try std.fs.cwd().openFile(path, .{});
         defer file.close();
 
         const reader = file.reader();
