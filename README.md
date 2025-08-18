@@ -44,6 +44,7 @@ start: 2024-06-07
 ```
 
 which allows us to catalog and track tasks without keeping additional artifacts.
+Because every task is a simple text file, it is also super simple to sync over just about anything.
 This also means you can stop using `zdo` at any time without losing track of where you're at.
 
 ## How to use it
