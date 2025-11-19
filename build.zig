@@ -5,9 +5,11 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{.preferred_optimize_mode = .ReleaseSafe});
     const exe = b.addExecutable(.{
         .name = "zdo",
-        .root_source_file = b.path("src/main.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .target = target,
+            .optimize =  optimize,
+        })
     });
     const install_step = b.addInstallArtifact(exe, .{});
     b.default_step.dependOn(&install_step.step,);

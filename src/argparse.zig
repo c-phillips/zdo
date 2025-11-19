@@ -3,13 +3,21 @@ const Board = @import("board.zig").Board;
 
 // Specifies how to pass an argument: short (-),  long (--), help string
 pub const ArgumentFormat = struct { ?[]const u8, ?[]const u8, []const u8 };
+
+/// Describes a command and all its components.
 pub const Command = struct {
+    /// The name of this command
     name: []const u8,
+    /// A description for what this command does
     description: []const u8 = "",
+    /// Which flags to watch for
     flags: ?[]const ArgumentFormat = null,
+    /// Which options to watch for
     options: ?[]const ArgumentFormat = null,
+    /// What action to run
     action: *const fn (board: *Board, args: Args) anyerror!void,
 
+    /// Creates a string that describes the command
     pub fn makeStr(self: *const Command, alloc: std.mem.Allocator, opts: struct { long: bool = false }) ![]u8 {
         const command_name_col_len = 10;
         const command_name = try alloc.dupe(u8, " " ** command_name_col_len);
@@ -18,8 +26,8 @@ pub const Command = struct {
         const fmt_name = try std.fmt.allocPrint(alloc, "  `{s}`", .{self.name});
         defer alloc.free(fmt_name);
         std.mem.copyForwards(u8, command_name, fmt_name[0..@min(fmt_name.len, command_name_col_len)]);
-        var buf = std.ArrayList(u8).init(alloc);
-        var bufwriter = buf.writer();
+        var buf: std.ArrayList(u8) = .empty;
+        var bufwriter = buf.writer(alloc);
         try bufwriter.print("{s}{s}\n", .{ command_name, if (opts.long) self.description else std.mem.sliceTo(self.description, '\n') });
         if (self.flags) |flags| {
             for (flags) |flag| {
@@ -45,23 +53,24 @@ pub const Command = struct {
     }
 };
 
+/// Manages arguments and conversion between raw args and Commands
 pub const Args = struct {
     exe_path: []const u8,
-    raw_args: [][:0] u8,
+    raw_args: [][:0]u8,
     filters: std.ArrayList([]const u8),
     flags: std.StringHashMap(bool),
     options: std.StringHashMap([]const u8),
     positional: std.ArrayList([]const u8),
     command: []const u8 = undefined,
 
-    pub fn init(alloc: std.mem.Allocator, raw_args: [][:0] u8) !Args {
+    pub fn init(alloc: std.mem.Allocator, raw_args: [][:0]u8) !Args {
         var args = Args{
             .exe_path = raw_args[0],
             .raw_args = raw_args,
-            .filters = std.ArrayList([]const u8).init(alloc),
+            .filters = .empty,
             .flags = std.StringHashMap(bool).init(alloc),
             .options = std.StringHashMap([]const u8).init(alloc),
-            .positional = std.ArrayList([]const u8).init(alloc),
+            .positional = .empty,
         };
 
         var command: ?[]const u8 = null;
@@ -71,8 +80,8 @@ pub const Args = struct {
             const entry = raw_args[i];
             if (entry.len < 1) continue;
             switch (entry[0]) {
-                '+' => try args.filters.append(entry),
-                '_' => try args.filters.append(entry),
+                '+' => try args.filters.append(alloc, entry),
+                '_' => try args.filters.append(alloc, entry),
                 '-' => {
                     if (entry.len == 1) return error.InvalidArgument;
                     if (entry[1] == '-' or command != null) {
@@ -81,11 +90,12 @@ pub const Args = struct {
                         if (raw_args.len > i + 1) {
                             const next = raw_args[i + 1];
                             if (next[0] == '"') {
-                                var value = std.ArrayList([]const u8).init(alloc);
-                                defer value.deinit();
+                                var value: std.ArrayList([]const u8) = .empty;
+                                defer value.deinit(alloc);
+
                                 var j = i + 1;
                                 while (raw_args[j][0] != '"' and raw_args[j][raw_args[j].len - 1] != '"') : (j += 1) {
-                                    try value.append(raw_args[j]);
+                                    try value.append(alloc, raw_args[j]);
                                 }
                                 try args.options.put(entry[offset..], try std.mem.join(alloc, " ", value.items));
                                 i = j + 1;
@@ -117,7 +127,7 @@ pub const Args = struct {
                     if (command == null) {
                         command = entry;
                     } else {
-                        try args.positional.append(entry);
+                        try args.positional.append(alloc, entry);
                     }
                 },
             }
@@ -128,8 +138,8 @@ pub const Args = struct {
         return args;
     }
 
-    pub fn deinit(self: *Args) void {
-        self.filters.deinit();
+    pub fn deinit(self: *Args, allocator: std.mem.Allocator) void {
+        self.filters.deinit(allocator);
         self.flags.deinit();
         self.options.deinit();
     }

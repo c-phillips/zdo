@@ -59,12 +59,14 @@ pub const Container = struct {
         // TODO: wrap this into the task loading function to prevent iterating through the filesystem twice
         var dir = try std.fs.cwd().openDir(abspath, .{ .iterate = true });
         defer dir.close();
-        var children_locations = std.ArrayList([]const u8).init(alloc);
-        defer children_locations.deinit();
+
+        var children_locations: std.ArrayList([]const u8) = .empty;
+        defer children_locations.deinit(alloc);
+
         var iter = dir.iterate();
         while (try iter.next()) |entry| {
             if (entry.kind == .directory) {
-                try children_locations.append(try dir.realpathAlloc(alloc, entry.name));
+                try children_locations.append(alloc, try dir.realpathAlloc(alloc, entry.name));
             }
         }
 
@@ -77,7 +79,7 @@ pub const Container = struct {
             .parent = opts.parent,
             .global = opts.global,
             .prefix = opts.prefix orelse if (opts.global) "_" else "",
-            .tasks = std.ArrayList(Task).init(alloc),
+            .tasks = .empty,
             .level = opts.level,
         };
 
@@ -87,18 +89,18 @@ pub const Container = struct {
             std.mem.sort([]const u8, children_locations.items, {}, util.stringCmp);
             const conflict_pref = "jklmfdsauiortpewyqnhgvcxzb";
 
-            var children = std.ArrayList(Container).init(alloc);
+            var children: std.ArrayList(Container) = .empty;
             var child_prefix_map = std.StringHashMap(*Container).init(alloc);
 
             for (children_locations.items) |child_location| {
                 const child_dirname = std.fs.path.basename(child_location);
-                var child_prefix = std.ArrayList(u8).init(alloc);
-                try child_prefix.append(child_dirname[0]);
+                var child_prefix: std.ArrayList(u8) = .empty;
+                try child_prefix.append(alloc, child_dirname[0]);
                 if (child_prefix_map.contains(child_prefix.items)) {
                     std.log.debug("\t!!-> Prefix map already contains: {s}", .{child_prefix.items});
                     // the proposed child_prefix already exists
                     if (child_dirname.len > 1) {
-                        try child_prefix.append(child_dirname[1]);
+                        try child_prefix.append(alloc, child_dirname[1]);
                     }
                     var conflict_idx: usize = 0;
                     while (child_prefix_map.contains(child_prefix.items)) : (conflict_idx += 1) {
@@ -108,7 +110,7 @@ pub const Container = struct {
                 }
                 // try child_prefix_map.put(child_prefix.items, true);
                 std.log.debug("\tPrefix for {s}: {s}", .{ child_dirname, child_prefix.items });
-                try children.append(try Container.init(alloc, child_location, .{
+                try children.append(alloc, try Container.init(alloc, child_location, .{
                     .parent = self,
                     .global = false,
                     .prefix = try std.mem.join(alloc, "", &.{ self.prefix, child_prefix.items }),
@@ -128,7 +130,10 @@ pub const Container = struct {
         flat: bool = false,
         command_args: ?Args = null,
     }) !void {
-        const stdout = std.io.getStdOut().writer();
+        var stdout_buffer: [1024]u8 = undefined;
+        var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+        const stdout = &stdout_writer.interface;
+
         if (self.parent == null) {
             try self.loadTasks(args.command_args.?, .{ .flat = args.flat });
         }
@@ -197,6 +202,8 @@ pub const Container = struct {
             }
         }
         if (self.level == 1 and (have_tasks or self.valid_child_tasks)) try stdout.writeAll("\n");
+
+        try stdout.flush();
     }
 
     pub fn loadTasks(self: *Container, args: Args, opts: struct {
@@ -204,7 +211,7 @@ pub const Container = struct {
     }) !void {
         if (self.tasks.items.len > 0) return; // only load once
         // load all of the tasks in our flat location into our task list
-        try tasklib.loadLocationToList(&self.tasks, .{ .abs_location = self.abspath, .today = datetime.DateTime.today() });
+        try tasklib.loadLocationToList(self.alloc, &self.tasks, .{ .abs_location = self.abspath, .today = datetime.DateTime.today() });
 
         std.mem.sort(Task, self.tasks.items, tasklib.SortAttribute.creation, Task.sortWithContext);
 
@@ -227,7 +234,7 @@ pub const Container = struct {
             if (self.children) |children| {
                 for (children.items) |child| {
                     // join the child tasks and filter mask into the parent's
-                    try self.tasks.appendSlice(child.tasks.items);
+                    try self.tasks.appendSlice(self.alloc, child.tasks.items);
                 }
             }
         }

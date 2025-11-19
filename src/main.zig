@@ -23,6 +23,7 @@ pub fn main() !void {
         }
         return err;
     };
+    defer args.deinit(alloc);
 
     var board = try Board.init(alloc, args);
 

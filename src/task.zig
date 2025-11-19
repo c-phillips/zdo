@@ -34,7 +34,7 @@ pub const Task = struct {
 
     file_path: ?[]const u8 = null,
     file_hash: ?u32 = null,
-    file_meta: ?std.fs.File.Metadata = null,
+    file_meta: ?std.fs.File.Stat = null,
 
     /// Set by the container
     _id: ?[]const u8 = null,
@@ -52,7 +52,7 @@ pub const Task = struct {
         today: ?datetime.DateTime = null,
         file_path: ?[]const u8 = null,
         file_hash: ?u32 = null,
-        file_meta: ?std.fs.File.Metadata = null,
+        file_meta: ?std.fs.File.Stat = null,
     }) Task {
         var today = args.today orelse datetime.DateTime.today();
 
@@ -110,7 +110,9 @@ pub const Task = struct {
         }
         defer file.close();
         try file.setEndPos(0); // clear the file
-        const writer = file.writer();
+
+        var writer_buffer: [1024]u8 = undefined;
+        var writer = &file.writer(&writer_buffer).interface;
         try writer.writeAll("---\n");
         var iter = props.iterator();
         while (iter.next()) |entry| {
@@ -141,7 +143,10 @@ pub const Task = struct {
             file = try std.fs.cwd().openFile(relpath, .{ .mode = .write_only });
         }
         defer file.close();
-        const writer = file.writer();
+
+        var writer_buffer: [1024]u8 = undefined;
+        var file_writer = file.writer(&writer_buffer);
+        const writer = &file_writer.interface;
 
         // TODO: add status initializers
         try writer.print(
@@ -175,6 +180,8 @@ pub const Task = struct {
         }
 
         try writer.print("---\n# {s}\n{s}", .{ self.name, self.note });
+
+        try writer.flush();
     }
 
     fn parseFrontmatter(alloc: std.mem.Allocator, yaml: []const u8) !std.StringHashMap([]const u8) {
@@ -217,7 +224,7 @@ pub const Task = struct {
     pub fn fromTaskFile(alloc: std.mem.Allocator, path: []const u8, opts: struct { today: ?datetime.DateTime = null }) !Task {
         const file = try std.fs.cwd().openFile(path, .{});
         defer file.close();
-        const metadata = try file.metadata();
+        const metadata = try file.stat();
 
         // TODO: switch to a streaming setup and remove the filesize restriction
         const buf = try file.readToEndAlloc(alloc, MAX_FILESIZE);
@@ -229,7 +236,7 @@ pub const Task = struct {
             propmap = std.StringHashMap([]const u8).init(alloc);
             var line_iter = std.mem.splitScalar(u8, util.trim(buf), '\n');
             if (line_iter.next()) |first_line| {
-                if (first_line.len > 0){
+                if (first_line.len > 0) {
                     if (util.trim(first_line)[0] == '#') {
                         try propmap.put("name", util.trim(first_line[1..]));
                     }
@@ -274,12 +281,12 @@ pub const Task = struct {
             start = try datetime.DateTime.fromDateString(start_str);
         }
 
-        var tag_list = std.ArrayList([]const u8).init(alloc);
+        var tag_list: std.ArrayList([]const u8) = .empty;
         const tag_str = propmap.get("tags") orelse "";
         if (tag_str.len > 0) {
             var tag_iter = std.mem.splitScalar(u8, tag_str, ',');
             while (tag_iter.next()) |tag| {
-                if (tag.len > 0) try tag_list.append(util.trim(tag));
+                if (tag.len > 0) try tag_list.append(alloc, util.trim(tag));
             }
         }
         return Task.init(alloc, .{
@@ -382,8 +389,9 @@ pub const Task = struct {
             if (self.note.len == 0) {
                 return try std.fmt.allocPrint(alloc, "{s} {c}  {s}\n    {s}\n    Tags: {{{s}}}{s}", .{ checkbox, priority_symbol, name_col, datestr, tag_str, opts.end });
             } else {
-                var note_lines = std.ArrayList([]const u8).init(alloc);
-                defer note_lines.deinit();
+                var note_lines: std.ArrayList([]const u8) = .empty;
+                defer note_lines.deinit(alloc);
+
                 var note_paragraphs = std.mem.splitSequence(u8, self.note, "\n");
                 while (note_paragraphs.next()) |original_paragraph| {
                     // var paragraph = try alloc.dupe(u8, original_paragraph);
@@ -394,33 +402,33 @@ pub const Task = struct {
 
                     var words = std.mem.splitScalar(u8, paragraph, ' ');
 
-                    var paragraph_lines = std.ArrayList([]const u8).init(alloc);
-                    defer paragraph_lines.deinit();
+                    var paragraph_lines: std.ArrayList([]const u8) = .empty;
+                    defer paragraph_lines.deinit(alloc);
 
-                    var current_line = std.ArrayList([]const u8).init(alloc);
-                    defer current_line.deinit();
+                    var current_line: std.ArrayList([]const u8) = .empty;
+                    defer current_line.deinit(alloc);
 
                     const line_start = "       ";
-                    try current_line.append(line_start);
+                    try current_line.append(alloc, line_start);
                     var line_length = line_start.len + 1;
                     while (words.next()) |word| {
                         const new_len = word.len + line_length - 1;
                         if (new_len >= opts.linewidth + 4) {
                             // create new line
                             const full_line = try std.mem.join(alloc, " ", current_line.items);
-                            try paragraph_lines.append(full_line);
-                            try current_line.resize(0);
-                            try current_line.append(line_start);
+                            try paragraph_lines.append(alloc, full_line);
+                            try current_line.resize(alloc, 0);
+                            try current_line.append(alloc, line_start);
                             line_length = line_start.len + 1;
                         }
-                        try current_line.append(word);
+                        try current_line.append(alloc, word);
                         line_length += word.len + 1;
                     }
                     const full_line = try std.mem.join(alloc, " ", current_line.items);
-                    try paragraph_lines.append(full_line);
+                    try paragraph_lines.append(alloc, full_line);
 
                     const joined_paragraphs = try std.mem.join(alloc, "\n", paragraph_lines.items);
-                    try note_lines.append(joined_paragraphs);
+                    try note_lines.append(alloc, joined_paragraphs);
                 }
                 const note = try std.mem.join(alloc, "\n", note_lines.items);
                 defer alloc.free(note);
@@ -436,8 +444,7 @@ pub const Task = struct {
             const file = try std.fs.openFileAbsolute(path, .{});
             defer file.close();
 
-            const reader = file.reader();
-            const buf = try reader.readAllAlloc(self.alloc, MAX_FILESIZE);
+            const buf = try file.readToEndAlloc(self.alloc, MAX_FILESIZE);
             var propmap: std.StringHashMap([]const u8) = undefined;
 
             if (!std.mem.startsWith(u8, buf, "---")) {
@@ -463,9 +470,9 @@ pub const Task = struct {
     }
 
     pub fn olderThan(self: Task, other: Task) bool {
-        if (self.file_meta.?.created()) |self_created| {
-            if (other.file_meta.?.created()) |other_created| {
-                return self_created > other_created;
+        if (self.file_meta) |self_stat| {
+            if (other.file_meta) |other_stat| {
+                return self_stat.ctime > other_stat.ctime;
             }
             return true;
         }
@@ -507,7 +514,7 @@ pub const Task = struct {
 };
 
 /// Will use the allocator attached to the task_list
-pub fn loadLocationToList(task_list: *std.ArrayList(Task), opts: struct {
+pub fn loadLocationToList(allocator: std.mem.Allocator, task_list: *std.ArrayList(Task), opts: struct {
     rel_location: ?[]const u8 = null,
     abs_location: ?[]const u8 = null,
     today: ?datetime.DateTime = null,
@@ -528,7 +535,7 @@ pub fn loadLocationToList(task_list: *std.ArrayList(Task), opts: struct {
         if (entry.kind == .file) {
             std.log.debug("\t\tFound \"{s}\"", .{entry.name});
             if (std.mem.endsWith(u8, entry.name, ".md")) {
-                try task_list.append(try Task.fromTaskFile(task_list.allocator, try d.realpathAlloc(task_list.allocator, entry.name), .{ .today = opts.today }));
+                try task_list.append(allocator, try Task.fromTaskFile(allocator, try d.realpathAlloc(allocator, entry.name), .{ .today = opts.today }));
             }
         }
     }

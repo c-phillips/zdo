@@ -93,7 +93,7 @@ pub const Board = struct {
         .{ .name = "view", .description = 
         \\Print a detailed view of the selected task
         \\      > zdo [flags...] view [id]
-        \\  
+        \\
         \\      Example:
         \\      > zdo view i3
         \\      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -141,8 +141,8 @@ pub const Board = struct {
     pub fn init(alloc: std.mem.Allocator, args: Args) !Board {
         var env_map = try std.process.getEnvMap(alloc);
         defer env_map.deinit();
-        
-        var task_locations = std.ArrayList([]const u8).init(alloc);
+
+        var task_locations: std.ArrayList([]const u8) = .empty;
 
         var cwd_task_dir = std.fs.cwd().openDir(".tasks", .{}) catch |err| switch (err) {
             error.FileNotFound => blk: {
@@ -153,7 +153,7 @@ pub const Board = struct {
         };
         cwd_task_dir.close();
         const current_location = try std.fs.cwd().realpathAlloc(alloc, "./.tasks/");
-        try task_locations.append(current_location);
+        try task_locations.append(alloc, current_location);
 
         const root_cont = try Container.init(alloc, "./.tasks/", .{});
 
@@ -172,7 +172,7 @@ pub const Board = struct {
                         else => return err,
                     };
                 std.log.debug("    Appending paths: {s}", .{abspath});
-                try task_locations.append(abspath);
+                try task_locations.append(alloc, abspath);
             }
         }
 
@@ -191,7 +191,7 @@ pub const Board = struct {
             appdata_dir.close();
 
             std.log.debug("Adding global tasks: {s}", .{global_tasks_path});
-            try task_locations.append(global_tasks_path);
+            try task_locations.append(alloc, global_tasks_path);
             global_location = global_tasks_path;
         }
 
@@ -200,7 +200,7 @@ pub const Board = struct {
             .task_locations = task_locations,
             .current_location = current_location,
             .global_location = global_location,
-            .tasks = std.ArrayList(Task).init(alloc),
+            .tasks = .empty,
             .today = datetime.DateTime.today(),
             .commands = std.StringHashMap(Command).init(alloc),
             .Container = root_cont,
@@ -222,7 +222,9 @@ pub const Board = struct {
 
     pub fn help(board: *Board, args: Args) !void {
         const alloc = board.alloc;
-        const stderr = std.io.getStdErr().writer();
+        var stderr_buffer: [1024]u8 = undefined;
+        var stderr_writer = std.fs.File.stderr().writer(&stderr_buffer);
+        const stderr = &stderr_writer.interface;
 
         // If the user provided a positional argument, lets try to print the
         // description for that command, otherwise just print all commands
@@ -264,6 +266,8 @@ pub const Board = struct {
         while (command_iter.next()) |command| {
             try stderr.writeAll(try command.makeStr(alloc, .{ .long = args.flags.contains("long") }));
         }
+
+        try stderr.flush();
     }
 
     pub fn list(self: *Board, args: Args) !void {
@@ -278,16 +282,20 @@ pub const Board = struct {
         self: *Board,
         args: Args,
     ) !void {
-        const stderr = std.io.getStdErr().writer();
+        var stderr_buffer: [1024]u8 = undefined;
+        var stderr_writer = std.fs.File.stderr().writer(&stderr_buffer);
+        const stderr = &stderr_writer.interface;
+
         try stderr.writeAll("Adding a task...\n");
 
-        var tags = std.ArrayList([]const u8).init(self.alloc);
-        defer tags.deinit();
+        var tags: std.ArrayList([]const u8) = .empty;
+        defer tags.deinit(self.alloc);
+
         if (args.filters.items.len > 0) {
             try stderr.print("Tags set:\n", .{});
             for (args.filters.items) |tag| {
                 try stderr.print("    {s}\n", .{tag});
-                try tags.append(tag[1..]);
+                try tags.append(self.alloc, tag[1..]);
             }
         }
 
@@ -320,8 +328,13 @@ pub const Board = struct {
         var note: ?[]const u8 = null;
         if (args.flags.contains("x")) {
             try stderr.writeAll("> ");
-            const stdin = std.io.getStdIn().reader();
-            const value = try stdin.readUntilDelimiterAlloc(self.alloc, '\n', 1024);
+
+            var stdin_buffer: [1024]u8 = undefined;
+            var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
+            const stdin = &stdin_reader.interface;
+
+            const value = try stdin.takeDelimiter('\n');
+            // const value = try stdin.readUntilDelimiterAlloc(self.alloc, '\n', 1024);
             note = value;
         } else if (args.options.get("extra")) |extra_content| {
             note = extra_content;
@@ -351,24 +364,39 @@ pub const Board = struct {
             .today = self.today,
         });
         try task.writeTaskFile(.{ .dir = location });
+
+        try stderr.flush();
     }
 
     fn getTaskFromArgs(self: *Board, args: Args) !*Task {
         try self.Container.loadTasks(args, .{});
-        const stderr = std.io.getStdErr().writer();
+
+        // get stderr
+        var stderr_buffer: [1024]u8 = undefined;
+        var stderr_writer = std.fs.File.stderr().writer(&stderr_buffer);
+        const stderr = &stderr_writer.interface;
+
         const user_id = args.positional.items[0];
         std.log.debug("Trying to find task {s}", .{user_id});
         if (try self.Container.getTaskById(user_id)) |task| {
             return task;
         }
         try stderr.print("Couldn't find task with id: {s}", .{user_id});
+
+        try stderr.flush();
         return error.TaskNotFound;
     }
 
     pub fn view(self: *Board, args: Args) !void {
         const task = try self.getTaskFromArgs(args);
-        const stderr = std.io.getStdErr().writer();
+
+        // get stderr
+        var stderr_buffer: [1024]u8 = undefined;
+        var stderr_writer = std.fs.File.stderr().writer(&stderr_buffer);
+        const stderr = &stderr_writer.interface;
+
         try stderr.print("{s}", .{try task.makeStr(self.alloc, .{})});
+        try stderr.flush();
     }
 
     pub fn mark(self: *Board, args: Args) !void {
@@ -393,12 +421,28 @@ pub const Board = struct {
     pub fn delete(self: *Board, args: Args) !void {
         const task = try self.getTaskFromArgs(args);
         if (args.flags.get("yes") == null) {
-            const stderr = std.io.getStdErr().writer();
+            // get stderr
+            var stderr_buffer: [1024]u8 = undefined;
+            var stderr_writer = std.fs.File.stderr().writer(&stderr_buffer);
+            const stderr = &stderr_writer.interface;
+
+            //get stdin
+            var stdin_buffer: [1024]u8 = undefined;
+            var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
+            const stdin = &stdin_reader.interface;
+
             try self.view(args);
             try stderr.print("Do you want to delete this task? [y/N]", .{});
-            const stdin = std.io.getStdIn().reader();
-            const value = try stdin.readUntilDelimiterAlloc(self.alloc, '\n', 4);
-            if (value[0] != 'y' and value[0] != 'Y') return;
+
+            const value = try stdin.takeDelimiter('\n');
+            // const value = try stdin.readUntilDelimiterAlloc(self.alloc, '\n', 4);
+            if (value) |v| {
+                if (v[0] != 'y' and v[0] != 'Y') {
+                    return;
+                }
+            }
+
+            try stderr.flush();
         }
         try task.delete();
 
