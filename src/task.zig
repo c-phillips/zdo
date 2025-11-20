@@ -112,7 +112,8 @@ pub const Task = struct {
         try file.setEndPos(0); // clear the file
 
         var writer_buffer: [1024]u8 = undefined;
-        var writer = &file.writer(&writer_buffer).interface;
+        var file_writer = file.writer(&writer_buffer);
+        const writer = &file_writer.interface;
         try writer.writeAll("---\n");
         var iter = props.iterator();
         while (iter.next()) |entry| {
