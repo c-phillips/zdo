@@ -2,17 +2,17 @@ const std = @import("std");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
-    const optimize = b.standardOptimizeOption(.{.preferred_optimize_mode = .ReleaseSafe});
-    const exe = b.addExecutable(.{
-        .name = "zdo",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("src/main.zig"),
-            .target = target,
-            .optimize =  optimize,
-        })
-    });
+    const optimize = b.standardOptimizeOption(.{ .preferred_optimize_mode = .ReleaseSafe });
+    const exe = b.addExecutable(.{ .name = "zdo", .root_module = b.createModule(.{
+        .root_source_file = b.path("src/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    }) });
+    exe.linkLibC();
     const install_step = b.addInstallArtifact(exe, .{});
-    b.default_step.dependOn(&install_step.step,);
+    b.default_step.dependOn(
+        &install_step.step,
+    );
 
     const run_exe = b.addRunArtifact(exe);
     run_exe.step.dependOn(&install_step.step);

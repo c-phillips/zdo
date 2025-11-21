@@ -271,7 +271,9 @@ pub const Board = struct {
     }
 
     pub fn list(self: *Board, args: Args) !void {
+        const winsize = try util.getTermSize();
         try self.Container.printTable(.{
+            .winsize = winsize,
             .long = args.flags.contains("long"),
             .flat = args.flags.contains("flat"),
             .command_args = args,

@@ -309,9 +309,9 @@ pub const Task = struct {
     pub fn makeStr(self: *const Task, alloc: std.mem.Allocator, opts: struct {
         short: bool = false,
         end: []const u8 = "\n",
-        linewidth: u8 = 80,
+        linewidth: usize = 80,
     }) ![]const u8 {
-        const name_col_len: usize = if (opts.short) 50 else opts.linewidth - 8;
+        const name_col_len: usize = opts.linewidth - 22;
         var name_col = try alloc.dupe(u8, " " ** 256);
         const name_len = if (self.name.len <= name_col_len) self.name.len else name_col_len;
         defer alloc.free(name_col);

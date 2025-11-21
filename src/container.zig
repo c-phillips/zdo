@@ -126,6 +126,7 @@ pub const Container = struct {
     }
 
     pub fn printTable(self: *Container, args: struct {
+        winsize: std.c.winsize,
         long: bool = false,
         flat: bool = false,
         command_args: ?Args = null,
@@ -147,7 +148,14 @@ pub const Container = struct {
 
         // write the table header
         if (self.level == 0 and !self.global) {
-            try stdout.writeAll("#     ?   !  Task\n" ++ ("_" ** 80) ++ "\n\n");
+            var bar: []u8 = try self.alloc.alloc(u8, args.winsize.col);
+            defer self.alloc.free(bar);
+            for (0..args.winsize.col) |i| {
+                bar[i] = '_';
+            }
+            try stdout.writeAll("#     ?   !  Task\n");
+            try stdout.writeAll(bar);
+            try stdout.writeAll("\n\n");
         } else {
             if (self.global) {
                 try stdout.print("{s:-^80}", .{" GLOBAL "});
@@ -179,8 +187,7 @@ pub const Container = struct {
         // write the tasks
         for (self.tasks.items) |task| {
             if (task._filtered) continue;
-
-            const str = try task.makeStr(self.alloc, .{ .short = !args.long, .linewidth = 76 });
+            const str = try task.makeStr(self.alloc, .{ .short = !args.long, .linewidth = args.winsize.col });
             defer self.alloc.free(str);
 
             const output = try std.fmt.allocPrint(self.alloc, "{s: <5}{s}", .{ task._id.?, str });
