@@ -414,7 +414,7 @@ pub const Task = struct {
                     var line_length = line_start.len + 1;
                     while (words.next()) |word| {
                         const new_len = word.len + line_length - 1;
-                        if (new_len >= opts.linewidth + 4) {
+                        if (new_len >= opts.linewidth) {
                             // create new line
                             const full_line = try std.mem.join(alloc, " ", current_line.items);
                             try paragraph_lines.append(alloc, full_line);
