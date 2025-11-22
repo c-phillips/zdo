@@ -146,6 +146,10 @@ pub const Args = struct {
 
     pub fn printAllDebug(args: *const Args) !void {
         std.log.debug("All args:", .{});
+        std.log.debug("  Positional:", .{});
+        for (0..args.positional.items.len) |i| {
+            std.log.debug("    {s}", .{args.positional.items[i]});
+        }
         std.log.debug("  Flags:", .{});
         var flag_iter = args.flags.iterator();
         while (flag_iter.next()) |entry| {

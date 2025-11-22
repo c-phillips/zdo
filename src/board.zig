@@ -370,27 +370,25 @@ pub const Board = struct {
         try stderr.flush();
     }
 
-    fn getTaskFromArgs(self: *Board, args: Args) !*Task {
-        try self.Container.loadTasks(args, .{});
-
+    fn getTaskById(self: *Board, tid: []const u8) !*Task {
         // get stderr
         var stderr_buffer: [1024]u8 = undefined;
         var stderr_writer = std.fs.File.stderr().writer(&stderr_buffer);
         const stderr = &stderr_writer.interface;
 
-        const user_id = args.positional.items[0];
-        std.log.debug("Trying to find task {s}", .{user_id});
-        if (try self.Container.getTaskById(user_id)) |task| {
+        std.log.debug("Trying to find task {s}", .{tid});
+        if (try self.Container.getTaskById(tid)) |task| {
             return task;
         }
-        try stderr.print("Couldn't find task with id: {s}", .{user_id});
+        try stderr.print("Couldn't find task with id: {s}", .{tid});
 
         try stderr.flush();
         return error.TaskNotFound;
     }
 
     pub fn view(self: *Board, args: Args) !void {
-        const task = try self.getTaskFromArgs(args);
+        try self.Container.loadTasks(args, .{});
+        const task = try self.getTaskById(args.positional.items[0]);
 
         // get stderr
         var stderr_buffer: [1024]u8 = undefined;
@@ -402,54 +400,60 @@ pub const Board = struct {
     }
 
     pub fn mark(self: *Board, args: Args) !void {
-        const task = try self.getTaskFromArgs(args);
-        // const stderr = std.io.getStdErr().writer();
-        var status: tasklib.TaskStatus = .done;
-        if (args.flags.get("hidden")) |_| {
-            status = .hidden;
-        } else if (args.flags.get("active")) |_| {
-            status = .active;
-        } else if (args.flags.get("waiting")) |_| {
-            status = .waiting;
-        } else if (args.flags.get("pending")) |_| {
-            status = .pending;
-        }
+        try self.Container.loadTasks(args, .{});
+        for (0..args.positional.items.len) |i| {
+            const task = try self.getTaskById(args.positional.items[i]);
+            // const stderr = std.io.getStdErr().writer();
+            var status: tasklib.TaskStatus = .done;
+            if (args.flags.get("hidden")) |_| {
+                status = .hidden;
+            } else if (args.flags.get("active")) |_| {
+                status = .active;
+            } else if (args.flags.get("waiting")) |_| {
+                status = .waiting;
+            } else if (args.flags.get("pending")) |_| {
+                status = .pending;
+            }
 
-        try task.mark(status);
-        // try stderr.writeAll("\n~*.'[ Done! ]'.*~\n\n");
-        try self.list(args);
+            try task.mark(status);
+            // try stderr.writeAll("\n~*.'[ Done! ]'.*~\n\n");
+            try self.list(args);
+        }
     }
 
     pub fn delete(self: *Board, args: Args) !void {
-        const task = try self.getTaskFromArgs(args);
-        if (args.flags.get("yes") == null) {
-            // get stderr
-            var stderr_buffer: [1024]u8 = undefined;
-            var stderr_writer = std.fs.File.stderr().writer(&stderr_buffer);
-            const stderr = &stderr_writer.interface;
+        try self.Container.loadTasks(args, .{});
+        for (0..args.positional.items.len) |i| {
+            const task = try self.getTaskById(args.positional.items[i]);
+            if (args.flags.get("yes") == null) {
+                // get stderr
+                var stderr_buffer: [1024]u8 = undefined;
+                var stderr_writer = std.fs.File.stderr().writer(&stderr_buffer);
+                const stderr = &stderr_writer.interface;
 
-            //get stdin
-            var stdin_buffer: [1024]u8 = undefined;
-            var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
-            const stdin = &stdin_reader.interface;
+                //get stdin
+                var stdin_buffer: [1024]u8 = undefined;
+                var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
+                const stdin = &stdin_reader.interface;
 
-            try self.view(args);
-            try stderr.print("Do you want to delete this task? [y/N]", .{});
+                try self.view(args);
+                try stderr.print("Do you want to delete this task? [y/N]", .{});
 
-            const value = try stdin.takeDelimiter('\n');
-            // const value = try stdin.readUntilDelimiterAlloc(self.alloc, '\n', 4);
-            if (value) |v| {
-                if (v[0] != 'y' and v[0] != 'Y') {
-                    return;
+                const value = try stdin.takeDelimiter('\n');
+                // const value = try stdin.readUntilDelimiterAlloc(self.alloc, '\n', 4);
+                if (value) |v| {
+                    if (v[0] != 'y' and v[0] != 'Y') {
+                        return;
+                    }
                 }
+
+                try stderr.flush();
             }
+            try task.delete();
 
-            try stderr.flush();
+            // FIXME
+            // if (args.flags.get("silent") != null) return;
+            // try self.list(args);
         }
-        try task.delete();
-
-        // FIXME
-        // if (args.flags.get("silent") != null) return;
-        // try self.list(args);
     }
 };
