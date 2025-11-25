@@ -13,15 +13,22 @@ pub fn main() !void {
 
     const raw_args = try std.process.argsAlloc(alloc);
     defer std.process.argsFree(alloc, raw_args);
-
-    var args: Args = Args.init(alloc, raw_args) catch |err| {
-        switch (err) {
-            error.NoCommand => std.log.err("No command! Rerun with help for a list of commands", .{}),
-            error.InvalidArgument => std.log.err("Invalid argument!", .{}),
-            error.BadOption => std.log.err("Invalid option!", .{}),
-            error.OutOfMemory => std.log.err("Out of Memory!", .{}),
-        }
-        return err;
+    
+    var args: Args = blk: {
+        const a = Args.init(alloc, raw_args) catch |err| {
+            switch (err) {
+                error.NoCommand => {
+                    const default_args: [2][:0]const u8 = .{"zdo", "list"};
+                    const default = try Args.init(alloc, &default_args);
+                    break :blk default;
+                },
+                error.InvalidArgument => std.log.err("Invalid argument!", .{}),
+                error.BadOption => std.log.err("Invalid option!", .{}),
+                error.OutOfMemory => std.log.err("Out of Memory!", .{}),
+            }
+            return err;
+        };
+        break :blk a;
     };
     defer args.deinit(alloc);
 
