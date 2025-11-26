@@ -125,6 +125,7 @@ pub const Task = struct {
             }
         }
         try writer.print("---\n{s}", .{self.note});
+        try writer.flush();
     }
 
     pub fn writeTaskFile(self: *const Task, opts: struct {
