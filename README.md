@@ -16,7 +16,7 @@ To build the executable for use, run
 zig build -Drelease=true
 ```
 
-Then move the executable from the `./zig-out/bin/` directory to somewhere on your `$PATH`.
+Then move the executable from the `./zig-out/bin/` directory to somewhere on your `$PATH`, e.g. `~/.local/bin/`.
 
 To confirm everything is working, and get some helpful info, run:
 
@@ -56,6 +56,8 @@ then view your tasks with,
 ```bash
 zdo list
 ```
+
+or simply run `zdo`, which defaults to the `list` command. 
 
 Lets try adding a more complex task using `zdo add`:
 ```bash
