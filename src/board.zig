@@ -438,6 +438,7 @@ pub const Board = struct {
 
                 try self.view(args);
                 try stderr.print("Do you want to delete this task? [y/N]", .{});
+                try stderr.flush();
 
                 const value = try stdin.takeDelimiter('\n');
                 // const value = try stdin.readUntilDelimiterAlloc(self.alloc, '\n', 4);
