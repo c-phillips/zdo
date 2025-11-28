@@ -307,23 +307,7 @@ pub const Task = struct {
         });
     }
 
-    pub fn makeStr(self: *const Task, alloc: std.mem.Allocator, opts: struct {
-        short: bool = false,
-        end: []const u8 = "\n",
-        linewidth: usize = 80,
-    }) ![]const u8 {
-        const name_col_len: usize = opts.linewidth - 22;
-        var name_col = try alloc.dupe(u8, " " ** 256);
-        const name_len = if (self.name.len <= name_col_len) self.name.len else name_col_len;
-        defer alloc.free(name_col);
-        std.mem.copyForwards(u8, name_col, self.name[0..name_len]);
-        if (self.name.len > name_col_len) {
-            name_col[name_len - 1] = '.';
-            name_col[name_len - 2] = '.';
-            name_col[name_len - 3] = '.';
-        }
-        name_col = name_col[0..name_col_len];
-
+    pub fn formatDate(self: *const Task, alloc: std.mem.Allocator) !?[]const u8 {
         var datefmt: ?[]const u8 = null;
         if (self.due) |_| {
             if (self.days_until_due.? > 0) {
@@ -352,6 +336,27 @@ pub const Task = struct {
                 datefmt = try std.fmt.allocPrint(alloc, "Starts today!", .{});
             }
         }
+        return datefmt;
+    }
+
+    pub fn makeStr(self: *const Task, alloc: std.mem.Allocator, opts: struct {
+        short: bool = false,
+        end: []const u8 = "\n",
+        linewidth: usize = 80,
+    }) ![]const u8 {
+        const name_col_len: usize = opts.linewidth - 22;
+        var name_col = try alloc.dupe(u8, " " ** 256);
+        const name_len = if (self.name.len <= name_col_len) self.name.len else name_col_len;
+        defer alloc.free(name_col);
+        std.mem.copyForwards(u8, name_col, self.name[0..name_len]);
+        if (self.name.len > name_col_len) {
+            name_col[name_len - 1] = '.';
+            name_col[name_len - 2] = '.';
+            name_col[name_len - 3] = '.';
+        }
+        name_col = name_col[0..name_col_len];
+
+        const datefmt: ?[]const u8 = try self.formatDate(alloc);
         const datestr = datefmt orelse "Anytime";
         defer {
             if (datefmt != null) alloc.free(datefmt.?);
