@@ -339,23 +339,59 @@ pub const Task = struct {
         return datefmt;
     }
 
+    pub fn formattedNote(self: *const Task, alloc: std.mem.Allocator, opts: struct {
+        linewidth: usize,
+    }) ![]u8 {
+        var note_lines: std.ArrayList([]const u8) = .empty;
+        defer note_lines.deinit(alloc);
+
+        var note_paragraphs = std.mem.splitSequence(u8, self.note, "\n");
+        while (note_paragraphs.next()) |original_paragraph| {
+            // var paragraph = try alloc.dupe(u8, original_paragraph);
+            // paragraph = paragraph;
+            // _ = std.mem.replace(u8, original_paragraph, "\n", "\n ", paragraph);
+            const paragraph = try std.mem.replaceOwned(u8, alloc, original_paragraph, "\n", "\n    ");
+            defer alloc.free(paragraph);
+
+            var words = std.mem.splitScalar(u8, paragraph, ' ');
+
+            var paragraph_lines: std.ArrayList([]const u8) = .empty;
+            defer paragraph_lines.deinit(alloc);
+
+            var current_line: std.ArrayList([]const u8) = .empty;
+            defer current_line.deinit(alloc);
+
+            const line_start = "       ";
+            try current_line.append(alloc, line_start);
+            var line_length = line_start.len + 1;
+            while (words.next()) |word| {
+                const new_len = word.len + line_length - 1;
+                if (new_len >= (opts.linewidth - line_start.len)) {
+                    // create new line
+                    const full_line = try std.mem.join(alloc, " ", current_line.items);
+                    try paragraph_lines.append(alloc, full_line);
+                    try current_line.resize(alloc, 0);
+                    try current_line.append(alloc, line_start);
+                    line_length = line_start.len + 1;
+                }
+                try current_line.append(alloc, word);
+                line_length += word.len + 1;
+            }
+            const full_line = try std.mem.join(alloc, " ", current_line.items);
+            try paragraph_lines.append(alloc, full_line);
+
+            const joined_paragraphs = try std.mem.join(alloc, "\n", paragraph_lines.items);
+            try note_lines.append(alloc, joined_paragraphs);
+        }
+        const note = try std.mem.join(alloc, "\n", note_lines.items);
+        return note;
+    }
+
     pub fn makeStr(self: *const Task, alloc: std.mem.Allocator, opts: struct {
         short: bool = false,
         end: []const u8 = "\n",
         linewidth: usize = 80,
     }) ![]const u8 {
-        const name_col_len: usize = opts.linewidth - 22;
-        var name_col = try alloc.dupe(u8, " " ** 256);
-        const name_len = if (self.name.len <= name_col_len) self.name.len else name_col_len;
-        defer alloc.free(name_col);
-        std.mem.copyForwards(u8, name_col, self.name[0..name_len]);
-        if (self.name.len > name_col_len) {
-            name_col[name_len - 1] = '.';
-            name_col[name_len - 2] = '.';
-            name_col[name_len - 3] = '.';
-        }
-        name_col = name_col[0..name_col_len];
-
         const datefmt: ?[]const u8 = try self.formatDate(alloc);
         const datestr = datefmt orelse "Anytime";
         defer {
@@ -381,6 +417,18 @@ pub const Task = struct {
             priority_symbol = '#';
         }
 
+        const name_col_len: usize = opts.linewidth - 22;
+        var name_col = try alloc.dupe(u8, " " ** 256);
+        const name_len = if (self.name.len <= name_col_len) self.name.len else name_col_len;
+        defer alloc.free(name_col);
+        std.mem.copyForwards(u8, name_col, self.name[0..name_len]);
+        if (self.name.len > name_col_len) {
+            name_col[name_len - 1] = '.';
+            name_col[name_len - 2] = '.';
+            name_col[name_len - 3] = '.';
+        }
+        name_col = name_col[0..name_col_len];
+
         if (opts.short) {
             return try std.fmt.allocPrint(alloc, "{s} {c}  {s}  {s}{s}", .{
                 checkbox,
@@ -396,48 +444,7 @@ pub const Task = struct {
             if (self.note.len == 0) {
                 return try std.fmt.allocPrint(alloc, "{s} {c}  {s}\n    {s}\n    Tags: {{{s}}}{s}", .{ checkbox, priority_symbol, name_col, datestr, tag_str, opts.end });
             } else {
-                var note_lines: std.ArrayList([]const u8) = .empty;
-                defer note_lines.deinit(alloc);
-
-                var note_paragraphs = std.mem.splitSequence(u8, self.note, "\n");
-                while (note_paragraphs.next()) |original_paragraph| {
-                    // var paragraph = try alloc.dupe(u8, original_paragraph);
-                    // paragraph = paragraph;
-                    // _ = std.mem.replace(u8, original_paragraph, "\n", "\n ", paragraph);
-                    const paragraph = try std.mem.replaceOwned(u8, alloc, original_paragraph, "\n", "\n    ");
-                    defer alloc.free(paragraph);
-
-                    var words = std.mem.splitScalar(u8, paragraph, ' ');
-
-                    var paragraph_lines: std.ArrayList([]const u8) = .empty;
-                    defer paragraph_lines.deinit(alloc);
-
-                    var current_line: std.ArrayList([]const u8) = .empty;
-                    defer current_line.deinit(alloc);
-
-                    const line_start = "       ";
-                    try current_line.append(alloc, line_start);
-                    var line_length = line_start.len + 1;
-                    while (words.next()) |word| {
-                        const new_len = word.len + line_length - 1;
-                        if (new_len >= (opts.linewidth - line_start.len)) {
-                            // create new line
-                            const full_line = try std.mem.join(alloc, " ", current_line.items);
-                            try paragraph_lines.append(alloc, full_line);
-                            try current_line.resize(alloc, 0);
-                            try current_line.append(alloc, line_start);
-                            line_length = line_start.len + 1;
-                        }
-                        try current_line.append(alloc, word);
-                        line_length += word.len + 1;
-                    }
-                    const full_line = try std.mem.join(alloc, " ", current_line.items);
-                    try paragraph_lines.append(alloc, full_line);
-
-                    const joined_paragraphs = try std.mem.join(alloc, "\n", paragraph_lines.items);
-                    try note_lines.append(alloc, joined_paragraphs);
-                }
-                const note = try std.mem.join(alloc, "\n", note_lines.items);
+                const note = try self.formattedNote(alloc, .{.linewidth=opts.linewidth}); 
                 defer alloc.free(note);
 
                 return try std.fmt.allocPrint(alloc, "{s} {c}  {s}\n    {s}\n    Tags: {{{s}}}\n    Note:\n{s}{s}", .{ checkbox, priority_symbol, name_col, datestr, tag_str, note, opts.end });
